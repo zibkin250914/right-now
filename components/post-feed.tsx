@@ -77,13 +77,15 @@ export function PostFeed({ posts, onDelete, onEdit }: PostFeedProps) {
             <div className="flex-1 min-w-0">
               <p className="text-foreground font-medium mb-1 text-balance">{post.message}</p>
               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                <span>whereby.com/{post.chat_id}</span>
+                <span className="font-bold">
+                  {post.channel === "whereby(화상채팅)" ? `whereby.com/${post.chat_id}` : `라인 아이디: ${post.chat_id}`}
+                </span>
                 <span>•</span>
                 <span>{formatTimeAgo(post.created_at)}</span>
               </div>
             </div>
 
-            {post.channel === "whereby(화상채팅)" ? (
+            {post.channel === "whereby(화상채팅)" && (
               <Button
                 onClick={() => handleJoinChat(post.chat_id)}
                 size="sm"
@@ -92,10 +94,6 @@ export function PostFeed({ posts, onDelete, onEdit }: PostFeedProps) {
                 <ExternalLink className="h-4 w-4 mr-1" />
                 바로가기
               </Button>
-            ) : (
-              <div className="text-sm text-muted-foreground shrink-0">
-                라인 아이디: {post.chat_id}
-              </div>
             )}
           </div>
         </Card>

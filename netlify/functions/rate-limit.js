@@ -1,3 +1,7 @@
+// Global rate limit store (persists between function calls)
+const rateLimitStore = new Map()
+const RATE_LIMIT_WINDOW = 5 * 60 * 1000 // 5 minutes
+
 exports.handler = async (event, context) => {
   const { httpMethod } = event
   
@@ -32,9 +36,6 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    // Simple in-memory store for rate limiting
-    const rateLimitStore = new Map()
-    const RATE_LIMIT_WINDOW = 5 * 60 * 1000 // 5 minutes
 
     const ip = event.headers['x-forwarded-for'] || 
                event.headers['x-real-ip'] || 

@@ -102,50 +102,9 @@ exports.handler = async (event, context) => {
         }
       }
 
-      // Send email notification
-      try {
-        const emailResponse = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer re_CtuK4zBQ_71x6wHxqWVcu7gz5jhMukeeW`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: 'Right Now <noreply@rightnow.app>',
-            to: ['zibkin250914@gmail.com'],
-            subject: '새로운 피드백이 도착했습니다 - Right Now',
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #333;">새로운 피드백이 도착했습니다</h2>
-                <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                  <p style="margin: 0; line-height: 1.6;">${feedback.trim()}</p>
-                </div>
-                <p style="color: #666; font-size: 14px;">
-                  받은 시간: ${new Date().toLocaleString('ko-KR')}
-                </p>
-                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                <p style="color: #999; font-size: 12px;">
-                  이 이메일은 Right Now 서비스의 피드백 시스템에서 자동으로 발송되었습니다.
-                </p>
-              </div>
-            `,
-          }),
-        })
+      // Email functionality removed - only save to database
 
-        if (emailResponse.ok) {
-          // Update feedback record to mark email as sent
-          await supabaseRequest(`feedback?id=eq.${feedbackData[0].id}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ email_sent: true })
-          })
-        } else {
-          console.error('Email sending failed:', await emailResponse.text())
-        }
-      } catch (emailError) {
-        console.error('Email sending error:', emailError)
-      }
-
-      console.log("Feedback received and processed:", {
+      console.log("Feedback received and saved to database:", {
         feedback: feedback.trim(),
         timestamp: new Date().toISOString(),
         feedbackId: feedbackData[0].id,

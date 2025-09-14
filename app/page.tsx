@@ -16,7 +16,7 @@ import type { Post } from "@/lib/supabase"
 export type Channel = "영화" | "게임" | "스터디" | "일상" | "자유" | "whereby(화상채팅)" | "Line(라인 아이디)"
 
 export default function FlowApp() {
-  const [activeChannel, setActiveChannel] = useState<Channel>("영화")
+  const [activeChannel, setActiveChannel] = useState<Channel>("whereby(화상채팅)")
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [passwordModal, setPasswordModal] = useState<{
