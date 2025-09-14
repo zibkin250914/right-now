@@ -1,0 +1,73 @@
+[build]
+  command = "npm run build"
+  publish = "out"
+
+[build.environment] 
+  NODE_VERSION = "18"
+
+# API routes - redirect to specific functions
+[[redirects]]
+  from = "/api/posts"
+  to = "/.netlify/functions/posts"
+  status = 200
+
+[[redirects]]
+  from = "/api/posts/*"
+  to = "/.netlify/functions/posts"
+  status = 200
+
+[[redirects]]
+  from = "/api/feedback"
+  to = "/.netlify/functions/feedback"
+  status = 200
+
+[[redirects]]
+  from = "/api/feedback/*"
+  to = "/.netlify/functions/feedback"
+  status = 200
+
+[[redirects]]
+  from = "/api/rate-limit"
+  to = "/.netlify/functions/rate-limit"
+  status = 200
+
+# Admin functions - direct access
+[[redirects]]
+  from = "/admin-auth"
+  to = "/.netlify/functions/admin-auth"
+  status = 200
+
+[[redirects]]
+  from = "/admin-verify"
+  to = "/.netlify/functions/admin-verify"
+  status = 200
+
+[[redirects]]
+  from = "/test"
+  to = "/.netlify/functions/test"
+  status = 200
+
+
+# Admin and other pages
+[[redirects]]
+  from = "/admin"
+  to = "/admin.html"
+  status = 200
+
+# Static files
+[[redirects]]
+  from = "/_next/static/*"
+  to = "/_next/static/:splat"
+  status = 200
+
+# Images and other assets
+[[redirects]]
+  from = "/public/*"
+  to = "/public/:splat"
+  status = 200
+
+# Catch-all for SPA routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
