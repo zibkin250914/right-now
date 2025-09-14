@@ -1,0 +1,194 @@
+"use client"
+
+import { useState, useRef, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Card } from "@/components/ui/card"
+import { Plus, X } from "lucide-react"
+import type { Channel } from "@/app/page"
+
+interface MobilePostCreationProps {
+  activeChannel: Channel
+  onSubmit: (data: { channel: Channel; chat_id: string; message: string; password: string }) => void
+  isSubmitting: boolean
+}
+
+export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting }: MobilePostCreationProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [chatId, setChatId] = useState("")
+  const [message, setMessage] = useState("")
+  const [password, setPassword] = useState("")
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!chatId.trim() || !message.trim() || !password.trim()) return
+
+    onSubmit({
+      channel: activeChannel,
+      chat_id: chatId.trim(),
+      message: message.trim(),
+      password: password.trim()
+    })
+
+    // Reset form
+    setChatId("")
+    setMessage("")
+    setPassword("")
+    setIsOpen(false)
+  }
+
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === backdropRef.current) {
+      setIsOpen(false)
+    }
+  }
+
+  const handleSwipeDown = () => {
+    setIsOpen(false)
+  }
+
+  // Prevent body scroll when sheet is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [isOpen])
+
+  return (
+    <>
+      {/* Floating Action Button */}
+      <div className="fixed bottom-4 right-4 z-50 sm:hidden">
+        <Button
+          onClick={() => setIsOpen(true)}
+          size="lg"
+          className="h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      </div>
+
+      {/* Bottom Sheet */}
+      {isOpen && (
+        <div
+          ref={backdropRef}
+          className="fixed inset-0 z-50 bg-black/50 sm:hidden"
+          onClick={handleBackdropClick}
+        >
+          <div
+            ref={sheetRef}
+            className="fixed bottom-0 left-0 right-0 bg-background rounded-t-2xl shadow-2xl max-h-[80vh] overflow-hidden"
+            style={{
+              animation: 'slideUp 0.3s ease-out'
+            }}
+          >
+            {/* Handle */}
+            <div className="flex justify-center py-3">
+              <div className="w-12 h-1 bg-muted-foreground/30 rounded-full" />
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 pb-4 border-b border-border">
+              <h2 className="text-lg font-semibold">새 게시물 작성</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsOpen(false)}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="p-4 space-y-4 overflow-y-auto max-h-[60vh]">
+              {/* Channel indicator */}
+              <div className="text-sm text-muted-foreground">
+                카테고리: <span className="font-medium text-foreground">{activeChannel}</span>
+              </div>
+
+              {/* Chat ID input */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  {activeChannel === "whereby(화상채팅)" ? "Room Name" : "라인 아이디"}
+                </label>
+                <div className="flex items-center gap-2">
+                  {activeChannel === "whereby(화상채팅)" && (
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">whereby.com/</span>
+                  )}
+                  <Input
+                    value={chatId}
+                    onChange={(e) => setChatId(e.target.value)}
+                    placeholder={activeChannel === "whereby(화상채팅)" ? "room-name" : "라인 아이디"}
+                    className="flex-1"
+                    maxLength={50}
+                  />
+                </div>
+              </div>
+
+              {/* Message input */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">본문</label>
+                <Textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="본문을 입력하세요."
+                  rows={4}
+                  maxLength={200}
+                  className="resize-none"
+                />
+                <div className="text-xs text-muted-foreground text-right">
+                  {message.length}/200
+                </div>
+              </div>
+
+              {/* Password input */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">비밀번호</label>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="비밀번호 (4-8자리)"
+                  maxLength={8}
+                />
+                <p className="text-xs text-muted-foreground">
+                  게시물 수정/삭제 시 필요합니다
+                </p>
+              </div>
+
+              {/* Submit button */}
+              <Button
+                type="submit"
+                disabled={!chatId.trim() || !message.trim() || !password.trim() || isSubmitting}
+                className="w-full"
+              >
+                {isSubmitting ? "등록 중..." : "등록"}
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CSS Animation */}
+      <style jsx>{`
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+          }
+          to {
+            transform: translateY(0);
+          }
+        }
+      `}</style>
+    </>
+  )
+}

@@ -11,6 +11,8 @@ import { FeedbackModal } from "@/components/feedback-modal"
 import { RealTimeProvider } from "@/components/real-time-provider"
 import { ConnectionStatus } from "@/components/connection-status"
 import { NewPostsNotification } from "@/components/new-posts-notification"
+import { SearchBar } from "@/components/search-bar"
+import { MobilePostCreation } from "@/components/mobile-post-creation"
 import type { Post } from "@/lib/supabase"
 
 export type Channel = "영화" | "게임" | "스터디" | "일상" | "자유" | "whereby(화상채팅)" | "Line(라인 아이디)"
@@ -19,6 +21,21 @@ export default function FlowApp() {
   const [activeChannel, setActiveChannel] = useState<Channel>("whereby(화상채팅)")
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [pagination, setPagination] = useState({
+    page: 1,
+    hasMore: true,
+    total: 0
+  })
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchResults, setSearchResults] = useState<Post[]>([])
+  const [searchPagination, setSearchPagination] = useState({
+    page: 1,
+    hasMore: true,
+    total: 0
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [passwordModal, setPasswordModal] = useState<{
     isOpen: boolean
     postId: string
@@ -31,26 +48,154 @@ export default function FlowApp() {
 
   // Load posts from database
   useEffect(() => {
-    const loadPosts = async () => {
+    const loadPosts = async (page = 1, append = false) => {
       try {
-        const response = await fetch('/api/posts')
+        if (page === 1) {
+          setLoading(true)
+        } else {
+          setLoadingMore(true)
+        }
+
+        const response = await fetch(`/.netlify/functions/posts?page=${page}&limit=20`)
         if (response.ok) {
           const data = await response.json()
-          setPosts(data.posts)
+          const newPosts = data.posts || []
+          
+          if (append) {
+            setPosts(prev => [...(prev || []), ...newPosts])
+          } else {
+            setPosts(newPosts)
+          }
+          
+          setPagination({
+            page: data.pagination.page,
+            hasMore: data.pagination.hasMore,
+            total: data.pagination.total
+          })
         }
       } catch (error) {
         console.error('Failed to load posts:', error)
       } finally {
         setLoading(false)
+        setLoadingMore(false)
       }
     }
 
     loadPosts()
   }, [])
 
-  const addPost = async (newPost: Omit<Post, "id" | "created_at">) => {
+  // Infinite scroll functionality
+  useEffect(() => {
+    const handleScroll = () => {
+      if (loadingMore || !pagination.hasMore) return
+
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop
+      const windowHeight = window.innerHeight
+      const documentHeight = document.documentElement.scrollHeight
+
+      // Load more when user scrolls to 80% of the page
+      if (scrollTop + windowHeight >= documentHeight * 0.8) {
+        loadMorePosts()
+      }
+    }
+
+    const loadMorePosts = async () => {
+      if (loadingMore || !pagination.hasMore) return
+
+      try {
+        setLoadingMore(true)
+        const nextPage = pagination.page + 1
+        const response = await fetch(`/.netlify/functions/posts?page=${nextPage}&limit=20`)
+        
+        if (response.ok) {
+          const data = await response.json()
+          const newPosts = data.posts || []
+          
+          setPosts(prev => [...(prev || []), ...newPosts])
+          setPagination(prev => ({
+            ...prev,
+            page: data.pagination.page,
+            hasMore: data.pagination.hasMore
+          }))
+        }
+      } catch (error) {
+        console.error('Failed to load more posts:', error)
+      } finally {
+        setLoadingMore(false)
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [pagination.hasMore, pagination.page, loadingMore])
+
+  // Fast client-side search
+  const handleSearch = async (query: string, channel: Channel) => {
+    if (!query.trim()) {
+      handleClearSearch()
+      return
+    }
+
+    // Prevent duplicate searches
+    if (searchQuery === query) {
+      return
+    }
+
+    setIsSearching(true)
+    setSearchQuery(query)
+
     try {
-      const response = await fetch('/api/posts', {
+      // Get all posts for the channel (cached)
+      const response = await fetch(`/.netlify/functions/posts?page=1&limit=1000`)
+      if (response.ok) {
+        const data = await response.json()
+        const allPosts = data.posts || []
+        
+        // Filter by channel first
+        const channelPosts = allPosts.filter(post => post.channel === channel)
+        
+        // Client-side search
+        const searchTerm = query.toLowerCase()
+        const filteredPosts = channelPosts.filter(post => 
+          post.chat_id.toLowerCase().includes(searchTerm) || 
+          post.message.toLowerCase().includes(searchTerm)
+        )
+        
+        setSearchResults(filteredPosts)
+        setSearchPagination({
+          page: 1,
+          hasMore: false,
+          total: filteredPosts.length
+        })
+      }
+    } catch (error) {
+      console.error('Search failed:', error)
+      setSearchResults([])
+      setSearchPagination({
+        page: 1,
+        hasMore: false,
+        total: 0
+      })
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  const handleClearSearch = () => {
+    setSearchQuery("")
+    setSearchResults([])
+    setIsSearching(false)
+    setSearchPagination({
+      page: 1,
+      hasMore: true,
+      total: 0
+    })
+  }
+
+  const addPost = async (newPost: Omit<Post, "id" | "created_at">) => {
+    setIsSubmitting(true)
+    try {
+      const response = await fetch('/.netlify/functions/posts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,16 +210,23 @@ export default function FlowApp() {
 
       if (response.ok) {
         const data = await response.json()
-        setPosts((prev) => [data.post, ...prev])
+        setPosts((prev) => [data.post || data, ...(prev || [])])
+        // Update total count
+        setPagination(prev => ({
+          ...prev,
+          total: prev.total + 1
+        }))
       }
     } catch (error) {
       console.error('Failed to create post:', error)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   const updatePost = async (postId: string, updatedPost: Omit<Post, "id" | "created_at">) => {
     try {
-      const response = await fetch(`/api/posts/${postId}`, {
+      const response = await fetch(`/.netlify/functions/posts`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -89,7 +241,7 @@ export default function FlowApp() {
 
       if (response.ok) {
         const data = await response.json()
-        setPosts((prev) => prev.map((post) => (post.id === postId ? data.post : post)))
+        setPosts((prev) => (prev || []).map((post) => (post.id === postId ? (data.post || data) : post)))
         setEditingPost(null) // Exit edit mode
       }
     } catch (error) {
@@ -98,17 +250,17 @@ export default function FlowApp() {
   }
 
   const handleRealTimePostsUpdate = (newPosts: Post[]) => {
-    setPosts((prev) => [...newPosts, ...prev])
+    setPosts((prev) => [...(newPosts || []), ...(prev || [])])
   }
 
   const deletePost = async (postId: string) => {
     try {
-      const response = await fetch(`/api/posts/${postId}`, {
+      const response = await fetch(`/.netlify/functions/posts`, {
         method: 'DELETE',
       })
 
       if (response.ok) {
-        setPosts((prev) => prev.filter((post) => post.id !== postId))
+        setPosts((prev) => (prev || []).filter((post) => post.id !== postId))
       }
     } catch (error) {
       console.error('Failed to delete post:', error)
@@ -141,33 +293,35 @@ export default function FlowApp() {
     }
   }
 
-  const filteredPosts = posts.filter((post) => post.channel === activeChannel)
+  const filteredPosts = searchQuery 
+    ? searchResults?.filter((post) => post.channel === activeChannel) || []
+    : posts?.filter((post) => post.channel === activeChannel) || []
 
   return (
     <RealTimeProvider posts={posts} onPostsUpdate={handleRealTimePostsUpdate}>
       <div className="min-h-screen bg-background">
         {/* Header */}
-        <header className="sticky top-0 z-50 bg-background border-b border-border">
-          <div className="flex items-center justify-center py-4 relative">
-            <h1 className="text-2xl font-bold text-primary">Right Now</h1>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2">
+        <header className="sticky top-0 z-40 bg-background border-b border-border">
+          <div className="flex items-center justify-center py-3 sm:py-4 relative px-4">
+            <h1 className="text-xl sm:text-2xl font-bold text-primary">Right Now</h1>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-1 sm:gap-2">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => window.open('/admin', '_blank')}
-                className="p-2"
+                className="p-1.5 sm:p-2"
                 title="관리자 패널"
               >
-                <Settings className="w-5 h-5" />
+                <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setFeedbackModal(true)}
-                className="p-2"
+                className="p-1.5 sm:p-2"
                 title="피드백 보내기"
               >
-                <MessageSquare className="w-5 h-5" />
+                <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
             </div>
           </div>
@@ -175,11 +329,19 @@ export default function FlowApp() {
           <ConnectionStatus />
         </header>
 
+        {/* Search Bar */}
+        <SearchBar 
+          activeChannel={activeChannel}
+          onSearch={handleSearch}
+          onClear={handleClearSearch}
+          isSearching={isSearching}
+        />
+
         {/* New Posts Notification */}
         <NewPostsNotification onScrollToTop={scrollToTop} />
 
         {/* Main Content */}
-        <main ref={mainRef} className="pb-80">
+        <main ref={mainRef} className="pb-20 sm:pb-80">
           {" "}
           {/* Extra padding for fixed form */}
           {loading ? (
@@ -190,22 +352,54 @@ export default function FlowApp() {
               </div>
             </div>
           ) : (
-            <PostFeed
-              data-post-feed // Added attribute for event dispatching
-              posts={filteredPosts}
-              onDelete={(postId) => setPasswordModal({ isOpen: true, postId, action: "delete" })}
-              onEdit={(postId) => setPasswordModal({ isOpen: true, postId, action: "edit" })} // Added edit handler
-            />
+            <>
+              {/* Search Results Info */}
+              {searchQuery && (
+                <div className="px-4 py-3 bg-muted/50 border-b border-border">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      <span className="font-medium">"{searchQuery}"</span> 검색 결과: {searchPagination.total}개
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearSearch}
+                      className="text-xs"
+                    >
+                      검색 취소
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              <PostFeed
+                data-post-feed // Added attribute for event dispatching
+                posts={filteredPosts}
+                onDelete={(postId) => setPasswordModal({ isOpen: true, postId, action: "delete" })}
+                onEdit={(postId) => setPasswordModal({ isOpen: true, postId, action: "edit" })} // Added edit handler
+                loadingMore={loadingMore}
+                hasMore={searchQuery ? searchPagination.hasMore : pagination.hasMore}
+              />
+            </>
           )}
         </main>
 
-        {/* Fixed Post Creation Form */}
-        <PostCreationForm
+        {/* Desktop Post Creation Form */}
+        <div className="hidden sm:block">
+          <PostCreationForm
+            activeChannel={activeChannel}
+            onSubmit={addPost}
+            editingPost={editingPost} // Pass editing post
+            onCancelEdit={handleCancelEdit} // Pass cancel edit handler
+            onUpdatePost={updatePost} // Pass update post handler
+          />
+        </div>
+
+        {/* Mobile Post Creation */}
+        <MobilePostCreation
           activeChannel={activeChannel}
           onSubmit={addPost}
-          editingPost={editingPost} // Pass editing post
-          onCancelEdit={handleCancelEdit} // Pass cancel edit handler
-          onUpdatePost={updatePost} // Pass update post handler
+          isSubmitting={isSubmitting}
         />
 
         {/* Password Modal */}

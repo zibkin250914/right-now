@@ -54,13 +54,41 @@ exports.handler = async (event, context) => {
 
   try {
     if (httpMethod === 'GET') {
-      // Get all posts
+      // Get posts with pagination
       try {
-        const posts = await supabaseRequest('posts?select=*&order=created_at.desc')
+        const { page = 1, limit = 20 } = event.queryStringParameters || {}
+        const offset = (parseInt(page) - 1) * parseInt(limit)
+        
+        // Get posts with pagination
+        const posts = await supabaseRequest(`posts?select=*&order=created_at.desc&limit=${limit}&offset=${offset}`)
+        
+        // Get total count
+        const countResponse = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=count`, {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'count=exact'
+          }
+        })
+        
+        const totalCount = countResponse.headers.get('content-range')?.split('/')[1] || 0
+        const totalPages = Math.ceil(parseInt(totalCount) / parseInt(limit))
+        const hasMore = parseInt(page) < totalPages
+        
         return {
           statusCode: 200,
           headers,
-          body: JSON.stringify({ posts })
+          body: JSON.stringify({
+            posts,
+            pagination: {
+              page: parseInt(page),
+              limit: parseInt(limit),
+              total: parseInt(totalCount),
+              totalPages,
+              hasMore
+            }
+          })
         }
       } catch (error) {
         console.error('Error fetching posts:', error)

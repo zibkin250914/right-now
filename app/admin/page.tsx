@@ -109,14 +109,14 @@ export default function AdminPanel() {
   const loadData = async () => {
     try {
       // Load posts
-      const postsResponse = await fetch('/api/posts')
+      const postsResponse = await fetch('/.netlify/functions/posts')
       if (postsResponse.ok) {
         const postsData = await postsResponse.json()
         setPosts(postsData.posts)
       }
 
       // Load feedback
-      const feedbackResponse = await fetch('/api/feedback')
+      const feedbackResponse = await fetch('/.netlify/functions/feedback')
       if (feedbackResponse.ok) {
         const feedbackData = await feedbackResponse.json()
         setFeedback(feedbackData.feedback)
@@ -132,7 +132,7 @@ export default function AdminPanel() {
     if (!confirm("정말로 이 포스트를 삭제하시겠습니까?")) return
 
     try {
-      const response = await fetch(`/api/posts/${postId}`, {
+      const response = await fetch(`/.netlify/functions/posts`, {
         method: 'DELETE',
         credentials: 'include'
       })
@@ -153,7 +153,7 @@ export default function AdminPanel() {
     if (!confirm("정말로 이 피드백을 삭제하시겠습니까?")) return
 
     try {
-      const response = await fetch(`/api/feedback/${feedbackId}`, {
+      const response = await fetch(`/.netlify/functions/feedback`, {
         method: 'DELETE',
         credentials: 'include'
       })

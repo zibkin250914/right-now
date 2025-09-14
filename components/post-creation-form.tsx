@@ -74,7 +74,7 @@ export function PostCreationForm({
 
   const checkRateLimit = async () => {
     try {
-      const response = await fetch("/api/rate-limit", {
+      const response = await fetch("/.netlify/functions/rate-limit", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

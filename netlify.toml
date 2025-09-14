@@ -31,6 +31,16 @@
   to = "/.netlify/functions/rate-limit"
   status = 200
 
+[[redirects]]
+  from = "/api/search"
+  to = "/.netlify/functions/search"
+  status = 200
+
+[[redirects]]
+  from = "/api/search/*"
+  to = "/.netlify/functions/search"
+  status = 200
+
 # Admin functions - direct access
 [[redirects]]
   from = "/admin-auth"
