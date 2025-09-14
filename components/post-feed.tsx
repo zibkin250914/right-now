@@ -40,7 +40,6 @@ export function PostFeed({ posts, onDelete, onEdit }: PostFeedProps) {
       <div className="flex flex-col items-center justify-center py-16 px-4">
         <div className="text-center">
           <h3 className="text-lg font-medium text-muted-foreground mb-2">아직 게시물이 없습니다</h3>
-          <p className="text-sm text-muted-foreground">첫 번째 채팅방을 만들어보세요!</p>
         </div>
       </div>
     )

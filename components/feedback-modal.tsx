@@ -26,7 +26,7 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     setIsSubmitting(true)
 
     try {
-      const response = await fetch("/api/feedback", {
+      const response = await fetch("/.netlify/functions/feedback", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
