@@ -1,9 +1,28 @@
-const { createClient } = require('@supabase/supabase-js')
+// Direct Supabase API calls without client library
+const SUPABASE_URL = 'https://yubnlqdboiamaoxkisjl.supabase.co'
+const SUPABASE_ANON_KEY = 'sb_publishable_MlCDY953SXcbwMwjdIqtrQ_3_gOK9Bv'
 
-// Hardcoded Supabase credentials (public info)
-const supabaseUrl = 'https://yubnlqdboiamaoxkisjl.supabase.co'
-const supabaseAnonKey = 'sb_publishable_MlCDY953SXcbwMwjdIqtrQ_3_gOK9Bv'
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Helper function to make Supabase API calls
+async function supabaseRequest(endpoint, options = {}) {
+  const url = `${SUPABASE_URL}/rest/v1/${endpoint}`
+  const headers = {
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers
+  })
+
+  if (!response.ok) {
+    throw new Error(`Supabase API error: ${response.status} ${response.statusText}`)
+  }
+
+  return response.json()
+}
 
 exports.handler = async (event, context) => {
   const { path, httpMethod, body } = event
@@ -36,24 +55,20 @@ exports.handler = async (event, context) => {
   try {
     if (httpMethod === 'GET') {
       // Get all feedback
-      const { data: feedback, error } = await supabase
-        .from('feedback')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) {
+      try {
+        const feedback = await supabaseRequest('feedback?select=*&order=created_at.desc')
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ feedback })
+        }
+      } catch (error) {
         console.error('Error fetching feedback:', error)
         return {
           statusCode: 500,
           headers,
           body: JSON.stringify({ error: 'Failed to fetch feedback' })
         }
-      }
-
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ feedback })
       }
     }
 
@@ -70,12 +85,15 @@ exports.handler = async (event, context) => {
       }
 
       // Save feedback to database
-      const { data: feedbackData, error: dbError } = await supabase
-        .from('feedback')
-        .insert([{ feedback: feedback.trim() }])
-        .select()
-
-      if (dbError) {
+      try {
+        const feedbackData = await supabaseRequest('feedback', {
+          method: 'POST',
+          body: JSON.stringify([{ feedback: feedback.trim() }]),
+          headers: {
+            'Prefer': 'return=representation'
+          }
+        })
+      } catch (dbError) {
         console.error('Error saving feedback to database:', dbError)
         return {
           statusCode: 500,
@@ -116,10 +134,10 @@ exports.handler = async (event, context) => {
 
         if (emailResponse.ok) {
           // Update feedback record to mark email as sent
-          await supabase
-            .from('feedback')
-            .update({ email_sent: true })
-            .eq('id', feedbackData[0].id)
+          await supabaseRequest(`feedback?id=eq.${feedbackData[0].id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ email_sent: true })
+          })
         } else {
           console.error('Email sending failed:', await emailResponse.text())
         }
@@ -144,24 +162,22 @@ exports.handler = async (event, context) => {
     if (pathSegments.length > 2 && httpMethod === 'DELETE') {
       const feedbackId = pathSegments[2]
 
-      const { error } = await supabase
-        .from('feedback')
-        .delete()
-        .eq('id', feedbackId)
-
-      if (error) {
+      try {
+        await supabaseRequest(`feedback?id=eq.${feedbackId}`, {
+          method: 'DELETE'
+        })
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ success: true })
+        }
+      } catch (error) {
         console.error('Error deleting feedback:', error)
         return {
           statusCode: 500,
           headers,
           body: JSON.stringify({ error: 'Failed to delete feedback' })
         }
-      }
-
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ success: true })
       }
     }
 

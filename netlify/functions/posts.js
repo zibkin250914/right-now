@@ -1,9 +1,28 @@
-const { createClient } = require('@supabase/supabase-js')
+// Direct Supabase API calls without client library
+const SUPABASE_URL = 'https://yubnlqdboiamaoxkisjl.supabase.co'
+const SUPABASE_ANON_KEY = 'sb_publishable_MlCDY953SXcbwMwjdIqtrQ_3_gOK9Bv'
 
-// Hardcoded Supabase credentials (public info)
-const supabaseUrl = 'https://yubnlqdboiamaoxkisjl.supabase.co'
-const supabaseAnonKey = 'sb_publishable_MlCDY953SXcbwMwjdIqtrQ_3_gOK9Bv'
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Helper function to make Supabase API calls
+async function supabaseRequest(endpoint, options = {}) {
+  const url = `${SUPABASE_URL}/rest/v1/${endpoint}`
+  const headers = {
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers
+  })
+
+  if (!response.ok) {
+    throw new Error(`Supabase API error: ${response.status} ${response.statusText}`)
+  }
+
+  return response.json()
+}
 
 exports.handler = async (event, context) => {
   const { path, httpMethod, body } = event
@@ -36,24 +55,20 @@ exports.handler = async (event, context) => {
   try {
     if (httpMethod === 'GET') {
       // Get all posts
-      const { data: posts, error } = await supabase
-        .from('posts')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) {
+      try {
+        const posts = await supabaseRequest('posts?select=*&order=created_at.desc')
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ posts })
+        }
+      } catch (error) {
         console.error('Error fetching posts:', error)
         return {
           statusCode: 500,
           headers,
           body: JSON.stringify({ error: 'Failed to fetch posts' })
         }
-      }
-
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ posts })
       }
     }
 
@@ -69,24 +84,26 @@ exports.handler = async (event, context) => {
         }
       }
 
-      const { data, error } = await supabase
-        .from('posts')
-        .insert([{ channel, chat_id, message, password }])
-        .select()
-
-      if (error) {
+      try {
+        const data = await supabaseRequest('posts', {
+          method: 'POST',
+          body: JSON.stringify([{ channel, chat_id, message, password }]),
+          headers: {
+            'Prefer': 'return=representation'
+          }
+        })
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ post: data[0] })
+        }
+      } catch (error) {
         console.error('Error creating post:', error)
         return {
           statusCode: 500,
           headers,
           body: JSON.stringify({ error: 'Failed to create post' })
         }
-      }
-
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ post: data[0] })
       }
     }
 
@@ -105,13 +122,29 @@ exports.handler = async (event, context) => {
           }
         }
 
-        const { data, error } = await supabase
-          .from('posts')
-          .update({ channel, chat_id, message, password })
-          .eq('id', postId)
-          .select()
+        try {
+          const data = await supabaseRequest(`posts?id=eq.${postId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ channel, chat_id, message, password }),
+            headers: {
+              'Prefer': 'return=representation'
+            }
+          })
+          
+          if (data.length === 0) {
+            return {
+              statusCode: 404,
+              headers,
+              body: JSON.stringify({ error: 'Post not found' })
+            }
+          }
 
-        if (error) {
+          return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({ post: data[0] })
+          }
+        } catch (error) {
           console.error('Error updating post:', error)
           return {
             statusCode: 500,
@@ -119,41 +152,25 @@ exports.handler = async (event, context) => {
             body: JSON.stringify({ error: 'Failed to update post' })
           }
         }
-
-        if (data.length === 0) {
-          return {
-            statusCode: 404,
-            headers,
-            body: JSON.stringify({ error: 'Post not found' })
-          }
-        }
-
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({ post: data[0] })
-        }
       }
 
       if (httpMethod === 'DELETE') {
-        const { error } = await supabase
-          .from('posts')
-          .delete()
-          .eq('id', postId)
-
-        if (error) {
+        try {
+          await supabaseRequest(`posts?id=eq.${postId}`, {
+            method: 'DELETE'
+          })
+          return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({ success: true })
+          }
+        } catch (error) {
           console.error('Error deleting post:', error)
           return {
             statusCode: 500,
             headers,
             body: JSON.stringify({ error: 'Failed to delete post' })
           }
-        }
-
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({ success: true })
         }
       }
     }
