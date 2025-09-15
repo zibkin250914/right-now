@@ -169,7 +169,7 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
         >
           <div
             ref={sheetRef}
-            className="fixed bottom-0 left-0 right-0 bg-background rounded-t-2xl shadow-2xl max-h-[80vh] overflow-hidden"
+            className="fixed bottom-0 left-0 right-0 bg-muted/30 rounded-t-2xl shadow-2xl max-h-[80vh] overflow-hidden"
             style={{
               animation: 'slideUp 0.3s ease-out'
             }}
@@ -193,7 +193,7 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="p-4 space-y-4 overflow-y-auto max-h-[60vh]">
+            <form onSubmit={handleSubmit} className="p-4 space-y-4 overflow-y-auto max-h-[60vh] bg-muted/20">
               {/* Rate limit error */}
               {rateLimitError && (
                 <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">

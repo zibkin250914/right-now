@@ -218,10 +218,10 @@ export default function FlowApp() {
         // Trigger animation for new post
         setNewPostIds(prev => [...prev, newPost.id])
         
-        // Clear animation after 3 seconds
+        // Clear animation after 4 seconds
         setTimeout(() => {
           setNewPostIds(prev => prev.filter(id => id !== newPost.id))
-        }, 3000)
+        }, 4000)
         
         // Update total count
         setPagination(prev => ({
@@ -297,10 +297,10 @@ export default function FlowApp() {
       const newPostIds = uniqueNewPosts.map(post => post.id)
       setNewPostIds(prev => [...prev, ...newPostIds])
       
-      // Clear animation after 3 seconds
+      // Clear animation after 4 seconds
       setTimeout(() => {
         setNewPostIds(prev => prev.filter(id => !newPostIds.includes(id)))
-      }, 3000)
+      }, 4000)
       
       // Add new posts to the beginning of the list
       return [...uniqueNewPosts, ...prev]
@@ -325,7 +325,7 @@ export default function FlowApp() {
     setPasswordModal({ isOpen: true, postId, action: "delete" })
   }
 
-  const handlePasswordVerification = async (password: string) => {
+  const handlePasswordVerification = (password: string) => {
     const post = posts.find((p) => p.id === passwordModal.postId)
     if (post && post.password === password) {
       const action = passwordModal.action
@@ -334,15 +334,17 @@ export default function FlowApp() {
       // Close password modal first
       setPasswordModal({ isOpen: false, postId: "", action: "delete" })
       
+      // Execute action after modal closes
       if (action === "delete") {
         // Delete immediately after password verification
-        await deletePost(postId)
+        deletePost(postId)
       } else if (action === "edit") {
         // Set editing post after password verification
         setEditingPost(post)
       }
       return true
     }
+    // Return false to keep modal open and show error message
     return false
   }
 
@@ -410,7 +412,14 @@ export default function FlowApp() {
         {/* Header */}
         <header className="sticky top-0 z-40 bg-background border-b border-border">
           <div className="flex items-center justify-center py-3 sm:py-4 relative px-4">
-            <h1 className="text-xl sm:text-2xl font-bold text-primary">Right Now</h1>
+            <a 
+              href="https://right-now.live" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-xl sm:text-2xl font-bold text-primary hover:text-primary/80 transition-colors cursor-pointer"
+            >
+              Right Now
+            </a>
             <div className="absolute right-4 top-1/2 -translate-y-1/2">
               <Button
                 variant="ghost"

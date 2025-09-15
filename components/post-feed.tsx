@@ -35,7 +35,7 @@ export function PostFeed({ posts, onDelete, onEdit, loadingMore, hasMore, newPos
               newSet.delete(postId)
               return newSet
             })
-          }, 3000) // Remove after 3 seconds
+          }, 4000) // Remove after 4 seconds (increased for longer animation)
         }
       })
     }
@@ -103,7 +103,7 @@ export function PostFeed({ posts, onDelete, onEdit, loadingMore, hasMore, newPos
             key={post.id}
             className={`p-3 sm:p-4 bg-card border border-border transition-all duration-300 ${
               isNewPost || isNewlyAdded 
-                ? 'new-post-enter new-post-highlight new-post-glow' 
+                ? 'new-post-enter new-post-highlight new-post-glow new-post-creation new-post-color-transition' 
                 : ''
             }`}
           >
