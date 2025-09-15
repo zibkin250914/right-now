@@ -414,8 +414,6 @@ export default function FlowApp() {
           <div className="flex items-center justify-center py-3 sm:py-4 relative px-4">
             <a 
               href="https://right-now.live" 
-              target="_blank" 
-              rel="noopener noreferrer"
               className="text-xl sm:text-2xl font-bold text-primary hover:text-primary/80 transition-colors cursor-pointer"
             >
               Right Now

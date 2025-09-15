@@ -170,9 +170,9 @@ export function PostCreationForm({
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-muted/30 border-t border-border">
+    <div className="fixed bottom-0 left-0 right-0 bg-muted border-t border-border">
       <div className="p-4">
-        <Card className="p-4 bg-muted/50 border border-border">
+        <Card className="p-4 bg-muted border border-border">
           {rateLimitError && (
             <Alert className="mb-4 border-destructive">
               <AlertDescription className="text-destructive">{rateLimitError}</AlertDescription>
