@@ -130,3 +130,58 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* New post animation styles */
+@keyframes slideInFromTop {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translateY(-5px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes highlightPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.1);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
+@keyframes glowEffect {
+  0% {
+    border-color: rgba(59, 130, 246, 0.3);
+    background-color: rgba(59, 130, 246, 0.02);
+  }
+  50% {
+    border-color: rgba(59, 130, 246, 0.6);
+    background-color: rgba(59, 130, 246, 0.05);
+  }
+  100% {
+    border-color: rgba(59, 130, 246, 0.3);
+    background-color: rgba(59, 130, 246, 0.02);
+  }
+}
+
+.new-post-enter {
+  animation: slideInFromTop 0.6s ease-out forwards;
+}
+
+.new-post-highlight {
+  animation: highlightPulse 1.5s ease-out forwards;
+}
+
+.new-post-glow {
+  animation: glowEffect 2s ease-in-out forwards;
+}

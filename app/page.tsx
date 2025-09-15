@@ -37,6 +37,7 @@ export default function FlowApp() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [feedbackModal, setFeedbackModal] = useState(false)
   const [editingPost, setEditingPost] = useState<Post | null>(null) // Added editing post state
+  const [newPostIds, setNewPostIds] = useState<string[]>([])
   const [passwordModal, setPasswordModal] = useState<{
     isOpen: boolean
     postId: string
@@ -209,7 +210,19 @@ export default function FlowApp() {
 
       if (response.ok) {
         const data = await response.json()
-        setPosts((prev) => [data.post || data, ...(prev || [])])
+        const newPost = data.post || data
+        
+        // Add new post to the list
+        setPosts((prev) => [newPost, ...(prev || [])])
+        
+        // Trigger animation for new post
+        setNewPostIds(prev => [...prev, newPost.id])
+        
+        // Clear animation after 3 seconds
+        setTimeout(() => {
+          setNewPostIds(prev => prev.filter(id => id !== newPost.id))
+        }, 3000)
+        
         // Update total count
         setPagination(prev => ({
           ...prev,
@@ -250,18 +263,23 @@ export default function FlowApp() {
         
         // Update post in local state
         setPosts((prev) => (prev || []).map((post) => (post.id === postId ? data.post : post)))
-        setEditingPost(null) // Exit edit mode
+        
+        // Exit edit mode and close any open forms
+        setEditingPost(null)
         
         // Show success message
         alert('게시물이 수정되었습니다.')
+        return true
       } else {
         const errorData = await response.json()
         console.error('Failed to update post:', response.status, errorData)
-        alert(`수정 실패: ${errorData.error || '알 수 없는 오류'}`)
+        alert(`수정 실패: ${errorData.error || `HTTP ${response.status}`}`)
+        return false
       }
     } catch (error) {
       console.error('Failed to update post:', error)
       alert('수정 중 오류가 발생했습니다.')
+      return false
     }
   }
 
@@ -274,6 +292,15 @@ export default function FlowApp() {
       const uniqueNewPosts = newPosts.filter(post => !existingIds.has(post.id))
       
       if (uniqueNewPosts.length === 0) return prev
+      
+      // Trigger animation for new posts from real-time updates
+      const newPostIds = uniqueNewPosts.map(post => post.id)
+      setNewPostIds(prev => [...prev, ...newPostIds])
+      
+      // Clear animation after 3 seconds
+      setTimeout(() => {
+        setNewPostIds(prev => prev.filter(id => !newPostIds.includes(id)))
+      }, 3000)
       
       // Add new posts to the beginning of the list
       return [...uniqueNewPosts, ...prev]
@@ -298,15 +325,22 @@ export default function FlowApp() {
     setPasswordModal({ isOpen: true, postId, action: "delete" })
   }
 
-  const handlePasswordVerification = (password: string) => {
+  const handlePasswordVerification = async (password: string) => {
     const post = posts.find((p) => p.id === passwordModal.postId)
     if (post && post.password === password) {
-      if (passwordModal.action === "delete") {
-        deletePost(passwordModal.postId)
-      } else if (passwordModal.action === "edit") {
-        setEditingPost(post) // Enter edit mode
-      }
+      const action = passwordModal.action
+      const postId = passwordModal.postId
+      
+      // Close password modal first
       setPasswordModal({ isOpen: false, postId: "", action: "delete" })
+      
+      if (action === "delete") {
+        // Delete immediately after password verification
+        await deletePost(postId)
+      } else if (action === "edit") {
+        // Set editing post after password verification
+        setEditingPost(post)
+      }
       return true
     }
     return false
@@ -340,14 +374,17 @@ export default function FlowApp() {
         
         // Show success message
         alert('게시물이 삭제되었습니다.')
+        return true
       } else {
         const errorData = await response.json()
         console.error('Failed to delete post:', response.status, errorData)
-        alert(`삭제 실패: ${errorData.error || '알 수 없는 오류'}`)
+        alert(`삭제 실패: ${errorData.error || `HTTP ${response.status}`}`)
+        return false
       }
     } catch (error) {
       console.error('Failed to delete post:', error)
       alert('삭제 중 오류가 발생했습니다.')
+      return false
     }
   }
 
@@ -438,6 +475,7 @@ export default function FlowApp() {
                 onEdit={handleEditPost}
                 loadingMore={loadingMore}
                 hasMore={searchQuery ? searchPagination.hasMore : pagination.hasMore}
+                newPostIds={newPostIds}
               />
             </>
           )}

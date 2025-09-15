@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef } from "react"
+import { useRef, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Trash2, ExternalLink, Edit, Copy } from "lucide-react"
@@ -13,11 +13,33 @@ interface PostFeedProps {
   onEdit: (postId: string) => void // Added onEdit prop for edit functionality
   loadingMore?: boolean
   hasMore?: boolean
+  newPostIds?: string[] // IDs of newly added posts for animation
 }
 
-export function PostFeed({ posts, onDelete, onEdit, loadingMore, hasMore }: PostFeedProps) {
+export function PostFeed({ posts, onDelete, onEdit, loadingMore, hasMore, newPostIds = [] }: PostFeedProps) {
   const feedRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
+  const [animatedPosts, setAnimatedPosts] = useState<Set<string>>(new Set())
+
+  // Handle new post animations
+  useEffect(() => {
+    if (newPostIds.length > 0) {
+      newPostIds.forEach(postId => {
+        if (!animatedPosts.has(postId)) {
+          setAnimatedPosts(prev => new Set([...prev, postId]))
+          
+          // Remove animation classes after animation completes
+          setTimeout(() => {
+            setAnimatedPosts(prev => {
+              const newSet = new Set(prev)
+              newSet.delete(postId)
+              return newSet
+            })
+          }, 3000) // Remove after 3 seconds
+        }
+      })
+    }
+  }, [newPostIds, animatedPosts])
 
   const handleJoinChat = (chatId: string) => {
     const chatUrl = `https://whereby.com/${chatId}`
@@ -72,11 +94,19 @@ export function PostFeed({ posts, onDelete, onEdit, loadingMore, hasMore }: Post
 
   return (
     <div className="space-y-3 p-2 sm:p-4" ref={feedRef} data-post-feed>
-      {posts.map((post, index) => (
-        <Card
-          key={post.id}
-          className="p-3 sm:p-4 bg-card border border-border transition-all duration-300"
-        >
+      {posts.map((post, index) => {
+        const isNewPost = animatedPosts.has(post.id)
+        const isNewlyAdded = newPostIds.includes(post.id)
+        
+        return (
+          <Card
+            key={post.id}
+            className={`p-3 sm:p-4 bg-card border border-border transition-all duration-300 ${
+              isNewPost || isNewlyAdded 
+                ? 'new-post-enter new-post-highlight new-post-glow' 
+                : ''
+            }`}
+          >
           {/* Mobile-optimized layout */}
           <div className="space-y-3">
             {/* Action buttons - top right on mobile */}
@@ -143,7 +173,8 @@ export function PostFeed({ posts, onDelete, onEdit, loadingMore, hasMore }: Post
             )}
           </div>
         </Card>
-      ))}
+        )
+      })}
       
       {/* Loading indicator */}
       {loadingMore && (

@@ -12,13 +12,19 @@ async function supabaseRequest(endpoint, options = {}) {
     ...options.headers
   }
 
+  console.log('Supabase request:', { url, method: options.method, headers, body: options.body })
+
   const response = await fetch(url, {
     ...options,
     headers
   })
 
+  console.log('Supabase response:', { status: response.status, statusText: response.statusText })
+
   if (!response.ok) {
-    throw new Error(`Supabase API error: ${response.status} ${response.statusText}`)
+    const errorText = await response.text()
+    console.error('Supabase error response:', errorText)
+    throw new Error(`Supabase API error: ${response.status} ${response.statusText} - ${errorText}`)
   }
 
   return response.json()
@@ -138,22 +144,18 @@ exports.handler = async (event, context) => {
     // Individual post operations (PUT, DELETE)
     if (httpMethod === 'PUT' || httpMethod === 'DELETE') {
       let postId
+      let requestBody = {}
       
-      // Try to get postId from path segments first
-      if (pathSegments.length > 2) {
-        postId = pathSegments[2]
-      } else {
-        // If not in path, try to get from request body
-        try {
-          const requestBody = JSON.parse(body)
-          postId = requestBody.id
-        } catch (parseError) {
-          console.error('Failed to parse body for postId:', parseError)
-          return {
-            statusCode: 400,
-            headers,
-            body: JSON.stringify({ error: 'Post ID is required' })
-          }
+      // Parse body once
+      try {
+        requestBody = JSON.parse(body)
+        postId = requestBody.id
+      } catch (parseError) {
+        console.error('Failed to parse body:', parseError)
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'Invalid JSON in request body' })
         }
       }
 
@@ -166,7 +168,7 @@ exports.handler = async (event, context) => {
       }
 
       if (httpMethod === 'PUT') {
-        const { channel, chat_id, message, password } = JSON.parse(body)
+        const { channel, chat_id, message, password } = requestBody
 
         if (!channel || !chat_id || !message || !password) {
           return {
@@ -177,6 +179,7 @@ exports.handler = async (event, context) => {
         }
 
         try {
+          console.log('Updating post:', { postId, channel, chat_id, message })
           const data = await supabaseRequest(`posts?id=eq.${postId}`, {
             method: 'PATCH',
             body: JSON.stringify({ channel, chat_id, message, password }),
@@ -184,6 +187,8 @@ exports.handler = async (event, context) => {
               'Prefer': 'return=representation'
             }
           })
+          
+          console.log('Update response:', data)
           
           if (data.length === 0) {
             return {
@@ -203,19 +208,22 @@ exports.handler = async (event, context) => {
           return {
             statusCode: 500,
             headers,
-            body: JSON.stringify({ error: 'Failed to update post' })
+            body: JSON.stringify({ error: `Failed to update post: ${error.message}` })
           }
         }
       }
 
       if (httpMethod === 'DELETE') {
         try {
+          console.log('Deleting post:', postId)
           const data = await supabaseRequest(`posts?id=eq.${postId}`, {
             method: 'DELETE',
             headers: {
               'Prefer': 'return=representation'
             }
           })
+          
+          console.log('Delete response:', data)
           
           if (data.length === 0) {
             return {
@@ -238,7 +246,7 @@ exports.handler = async (event, context) => {
           return {
             statusCode: 500,
             headers,
-            body: JSON.stringify({ error: 'Failed to delete post' })
+            body: JSON.stringify({ error: `Failed to delete post: ${error.message}` })
           }
         }
       }

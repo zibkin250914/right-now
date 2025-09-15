@@ -91,19 +91,22 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
 
     if (editingPost && onUpdate) {
       // Update existing post
-      await onUpdate(editingPost.id, {
+      const success = await onUpdate(editingPost.id, {
         channel: activeChannel,
         chat_id: chatId.trim(),
         message: message.trim(),
         password: password.trim()
       })
-      // Close modal and reset editing state
-      setIsOpen(false)
-      onCancelEdit?.()
-      // Reset form fields
-      setChatId("")
-      setMessage("")
-      setPassword("")
+      
+      if (success) {
+        // Close modal and reset editing state only on success
+        setIsOpen(false)
+        onCancelEdit?.()
+        // Reset form fields
+        setChatId("")
+        setMessage("")
+        setPassword("")
+      }
     } else {
       // Create new post
       onSubmit({

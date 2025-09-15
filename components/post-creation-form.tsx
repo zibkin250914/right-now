@@ -119,16 +119,19 @@ export function PostCreationForm({
       }
 
       if (editingPost && onUpdatePost) {
-        await onUpdatePost(editingPost.id, {
+        const success = await onUpdatePost(editingPost.id, {
           channel: activeChannel,
           chat_id: formData.chat_id,
           message: formData.message,
           password: formData.password,
         })
-        // Reset form and exit edit mode
-        setFormData({ chat_id: "", message: "", password: "" })
-        setErrors({})
-        setIsExpanded(false)
+        
+        if (success) {
+          // Reset form and exit edit mode only on success
+          setFormData({ chat_id: "", message: "", password: "" })
+          setErrors({})
+          setIsExpanded(false)
+        }
       } else {
         onSubmit({
           channel: activeChannel,
