@@ -15,7 +15,7 @@ import { SearchBar } from "@/components/search-bar"
 import { MobilePostCreation } from "@/components/mobile-post-creation"
 import type { Post } from "@/lib/supabase"
 
-export type Channel = "영화" | "게임" | "스터디" | "일상" | "자유" | "whereby(화상채팅)" | "Line(라인 아이디)"
+export type Channel = "whereby(화상채팅)" | "Line(라인 아이디)"
 
 export default function FlowApp() {
   const [activeChannel, setActiveChannel] = useState<Channel>("whereby(화상채팅)")
@@ -250,7 +250,28 @@ export default function FlowApp() {
   }
 
   const handleRealTimePostsUpdate = (newPosts: Post[]) => {
-    setPosts((prev) => [...(newPosts || []), ...(prev || [])])
+    if (!newPosts || newPosts.length === 0) return
+    
+    setPosts((prev) => {
+      // Check if any of the new posts already exist to avoid duplicates
+      const existingIds = new Set(prev.map(post => post.id))
+      const uniqueNewPosts = newPosts.filter(post => !existingIds.has(post.id))
+      
+      if (uniqueNewPosts.length === 0) return prev
+      
+      // Add new posts to the beginning of the list
+      return [...uniqueNewPosts, ...prev]
+    })
+  }
+
+  const handleRealTimePostUpdate = (updatedPost: Post) => {
+    setPosts((prev) => 
+      prev.map(post => post.id === updatedPost.id ? updatedPost : post)
+    )
+  }
+
+  const handleRealTimePostDelete = (deletedPostId: string) => {
+    setPosts((prev) => prev.filter(post => post.id !== deletedPostId))
   }
 
   const deletePost = async (postId: string) => {
@@ -298,7 +319,12 @@ export default function FlowApp() {
     : posts?.filter((post) => post.channel === activeChannel) || []
 
   return (
-    <RealTimeProvider posts={posts} onPostsUpdate={handleRealTimePostsUpdate}>
+    <RealTimeProvider 
+      posts={posts} 
+      onPostsUpdate={handleRealTimePostsUpdate}
+      onPostUpdate={handleRealTimePostUpdate}
+      onPostDelete={handleRealTimePostDelete}
+    >
       <div className="min-h-screen bg-background">
         {/* Header */}
         <header className="sticky top-0 z-40 bg-background border-b border-border">

@@ -24,14 +24,46 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting }: Mo
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!chatId.trim() || !message.trim() || !password.trim()) return
+    if (!chatId.trim() || !message.trim()) return
 
-    onSubmit({
-      channel: activeChannel,
-      chat_id: chatId.trim(),
-      message: message.trim(),
-      password: password.trim()
-    })
+    // Validate Line ID for English characters only
+    if (activeChannel === "Line(라인 아이디)") {
+      const englishRegex = /^[a-zA-Z0-9._-]+$/
+      if (!englishRegex.test(chatId)) {
+        alert('라인 아이디는 영문, 숫자, 특수문자(._-)만 사용 가능합니다.')
+        return
+      }
+    }
+
+    // For editing, password is required
+    if (editingPost && !password.trim()) {
+      alert('수정을 위해 비밀번호를 입력해주세요.')
+      return
+    }
+
+    // For new posts, password is required
+    if (!editingPost && !password.trim()) {
+      alert('비밀번호를 입력해주세요.')
+      return
+    }
+
+    if (editingPost && onUpdate) {
+      // Update existing post
+      onUpdate(editingPost.id, {
+        channel: activeChannel,
+        chat_id: chatId.trim(),
+        message: message.trim(),
+        password: password.trim()
+      })
+    } else {
+      // Create new post
+      onSubmit({
+        channel: activeChannel,
+        chat_id: chatId.trim(),
+        message: message.trim(),
+        password: password.trim()
+      })
+    }
 
     // Reset form
     setChatId("")
@@ -127,7 +159,7 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting }: Mo
                   <Input
                     value={chatId}
                     onChange={(e) => setChatId(e.target.value)}
-                    placeholder={activeChannel === "whereby(화상채팅)" ? "room-name" : "라인 아이디"}
+                    placeholder={activeChannel === "whereby(화상채팅)" ? "room-name" : "영문, 숫자, 특수문자(._-)만 사용"}
                     className="flex-1"
                     maxLength={50}
                   />
@@ -161,7 +193,7 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting }: Mo
                   maxLength={8}
                 />
                 <p className="text-xs text-muted-foreground">
-                  게시물 수정/삭제 시 필요합니다
+                  {editingPost ? "수정을 위해 비밀번호가 필요합니다" : "게시물 수정/삭제 시 필요합니다"}
                 </p>
               </div>
 
