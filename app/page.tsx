@@ -7,9 +7,9 @@ import { ChannelTabs } from "@/components/channel-tabs"
 import { PostFeed } from "@/components/post-feed"
 import { PostCreationForm } from "@/components/post-creation-form"
 import { FeedbackModal } from "@/components/feedback-modal"
+import { PasswordModal } from "@/components/password-modal"
 import { RealTimeProvider } from "@/components/real-time-provider"
 import { ConnectionStatus } from "@/components/connection-status"
-import { NewPostsNotification } from "@/components/new-posts-notification"
 import { SearchBar } from "@/components/search-bar"
 import { MobilePostCreation } from "@/components/mobile-post-creation"
 import type { Post } from "@/lib/supabase"
@@ -37,6 +37,11 @@ export default function FlowApp() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [feedbackModal, setFeedbackModal] = useState(false)
   const [editingPost, setEditingPost] = useState<Post | null>(null) // Added editing post state
+  const [passwordModal, setPasswordModal] = useState<{
+    isOpen: boolean
+    postId: string
+    action: "edit" | "delete"
+  }>({ isOpen: false, postId: "", action: "delete" })
 
   const mainRef = useRef<HTMLElement>(null)
 
@@ -271,13 +276,28 @@ export default function FlowApp() {
   }
 
   const handleEditPost = (postId: string) => {
-    const post = posts.find((p) => p.id === postId)
-    if (post) {
-      setEditingPost(post)
-    }
+    setPasswordModal({ isOpen: true, postId, action: "edit" })
   }
 
-  const handleDeletePost = async (postId: string) => {
+  const handleDeletePost = (postId: string) => {
+    setPasswordModal({ isOpen: true, postId, action: "delete" })
+  }
+
+  const handlePasswordVerification = (password: string) => {
+    const post = posts.find((p) => p.id === passwordModal.postId)
+    if (post && post.password === password) {
+      if (passwordModal.action === "delete") {
+        deletePost(passwordModal.postId)
+      } else if (passwordModal.action === "edit") {
+        setEditingPost(post) // Enter edit mode
+      }
+      setPasswordModal({ isOpen: false, postId: "", action: "delete" })
+      return true
+    }
+    return false
+  }
+
+  const deletePost = async (postId: string) => {
     try {
       const response = await fetch(`/.netlify/functions/posts`, {
         method: 'DELETE',
@@ -302,32 +322,12 @@ export default function FlowApp() {
     }
   }
 
-  const deletePost = async (postId: string) => {
-    try {
-      const response = await fetch(`/.netlify/functions/posts`, {
-        method: 'DELETE',
-      })
-
-      if (response.ok) {
-        setPosts((prev) => (prev || []).filter((post) => post.id !== postId))
-      }
-    } catch (error) {
-      console.error('Failed to delete post:', error)
-    }
-  }
 
 
   const handleCancelEdit = () => {
     setEditingPost(null)
   }
 
-  const scrollToTop = () => {
-    if (mainRef.current) {
-      mainRef.current.scrollTo({ top: 0, behavior: "smooth" })
-    } else {
-      window.scrollTo({ top: 0, behavior: "smooth" })
-    }
-  }
 
   const filteredPosts = searchQuery 
     ? searchResults?.filter((post) => post.channel === activeChannel) || []
@@ -369,8 +369,6 @@ export default function FlowApp() {
           isSearching={isSearching}
         />
 
-        {/* New Posts Notification */}
-        <NewPostsNotification onScrollToTop={scrollToTop} />
 
         {/* Main Content */}
         <main ref={mainRef} className="pb-20 sm:pb-80">
@@ -439,6 +437,14 @@ export default function FlowApp() {
 
 
         <FeedbackModal isOpen={feedbackModal} onClose={() => setFeedbackModal(false)} />
+        
+        {/* Password Modal */}
+        <PasswordModal
+          isOpen={passwordModal.isOpen}
+          action={passwordModal.action}
+          onClose={() => setPasswordModal({ isOpen: false, postId: "", action: "delete" })}
+          onVerify={handlePasswordVerification}
+        />
       </div>
     </RealTimeProvider>
   )

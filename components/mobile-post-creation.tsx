@@ -74,12 +74,6 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
       }
     }
 
-    // For editing, password is required
-    if (editingPost && !password.trim()) {
-      alert('수정을 위해 비밀번호를 입력해주세요.')
-      return
-    }
-
     // For new posts, password is required
     if (!editingPost && !password.trim()) {
       alert('비밀번호를 입력해주세요.')

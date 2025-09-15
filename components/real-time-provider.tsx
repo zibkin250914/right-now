@@ -8,6 +8,7 @@ interface RealTimeContextType {
   isOnline: boolean
   lastUpdate: Date | null
   newPostsCount: number
+  activeUsers: number
   markPostsAsRead: () => void
 }
 
@@ -33,6 +34,7 @@ export function RealTimeProvider({ children, posts, onPostsUpdate, onPostUpdate,
   const [isOnline, setIsOnline] = useState(true)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [newPostsCount, setNewPostsCount] = useState(0)
+  const [activeUsers, setActiveUsers] = useState(1) // Start with 1 (current user)
   const [lastKnownPostCount, setLastKnownPostCount] = useState(posts.length)
 
   // Monitor online/offline status
@@ -49,6 +51,42 @@ export function RealTimeProvider({ children, posts, onPostsUpdate, onPostUpdate,
     }
   }, [])
 
+  // Track active users using presence
+  useEffect(() => {
+    if (!isOnline) return
+
+    const channel = supabase
+      .channel('active-users')
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState()
+        const users = Object.keys(state).length
+        setActiveUsers(Math.max(1, users)) // At least 1 (current user)
+      })
+      .on('presence', { event: 'join' }, () => {
+        const state = channel.presenceState()
+        const users = Object.keys(state).length
+        setActiveUsers(Math.max(1, users))
+      })
+      .on('presence', { event: 'leave' }, () => {
+        const state = channel.presenceState()
+        const users = Object.keys(state).length
+        setActiveUsers(Math.max(1, users))
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          // Track current user as active
+          await channel.track({
+            user_id: Math.random().toString(36).substr(2, 9), // Generate unique ID
+            online_at: new Date().toISOString()
+          })
+        }
+      })
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [isOnline])
+
   // Supabase real-time subscription
   useEffect(() => {
     if (!isOnline) return
@@ -56,12 +94,7 @@ export function RealTimeProvider({ children, posts, onPostsUpdate, onPostUpdate,
     console.log('Setting up real-time subscription for posts...')
 
     const channel = supabase
-      .channel('posts-changes', {
-        config: {
-          broadcast: { self: false },
-          presence: { key: 'posts' }
-        }
-      })
+      .channel('posts-changes')
       .on(
         'postgres_changes',
         {
@@ -143,9 +176,14 @@ export function RealTimeProvider({ children, posts, onPostsUpdate, onPostUpdate,
   useEffect(() => {
     if (!isOnline) return
 
+    let isPolling = false // Prevent concurrent polls
+
     const pollForNewPosts = async () => {
+      if (isPolling) return
+      isPolling = true
+
       try {
-        const response = await fetch(`/.netlify/functions/posts?page=1&limit=5`)
+        const response = await fetch(`/.netlify/functions/posts?page=1&limit=3`)
         if (response.ok) {
           const data = await response.json()
           const newPosts = data.posts || []
@@ -165,13 +203,18 @@ export function RealTimeProvider({ children, posts, onPostsUpdate, onPostUpdate,
         }
       } catch (error) {
         console.error('Polling failed:', error)
+      } finally {
+        isPolling = false
       }
     }
 
-    // Poll every 30 seconds as fallback
-    const interval = setInterval(pollForNewPosts, 30000)
+    // Poll every 10 seconds as fallback
+    const interval = setInterval(pollForNewPosts, 10000)
 
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      isPolling = false
+    }
   }, [isOnline, posts, onPostsUpdate])
 
   const markPostsAsRead = () => {
@@ -184,6 +227,7 @@ export function RealTimeProvider({ children, posts, onPostsUpdate, onPostUpdate,
         isOnline,
         lastUpdate,
         newPostsCount,
+        activeUsers,
         markPostsAsRead,
       }}
     >
