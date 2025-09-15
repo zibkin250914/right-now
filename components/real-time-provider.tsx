@@ -56,7 +56,12 @@ export function RealTimeProvider({ children, posts, onPostsUpdate, onPostUpdate,
     console.log('Setting up real-time subscription for posts...')
 
     const channel = supabase
-      .channel('posts-changes')
+      .channel('posts-changes', {
+        config: {
+          broadcast: { self: false },
+          presence: { key: 'posts' }
+        }
+      })
       .on(
         'postgres_changes',
         {
@@ -112,6 +117,11 @@ export function RealTimeProvider({ children, posts, onPostsUpdate, onPostUpdate,
           console.log('Successfully subscribed to posts changes')
         } else if (status === 'CHANNEL_ERROR') {
           console.error('Failed to subscribe to posts changes')
+          // Retry subscription after 5 seconds
+          setTimeout(() => {
+            console.log('Retrying subscription...')
+            channel.subscribe()
+          }, 5000)
         }
       })
 
@@ -128,6 +138,41 @@ export function RealTimeProvider({ children, posts, onPostsUpdate, onPostUpdate,
     }
     setLastKnownPostCount(posts.length)
   }, [posts.length, lastKnownPostCount])
+
+  // Fallback polling mechanism in case real-time fails
+  useEffect(() => {
+    if (!isOnline) return
+
+    const pollForNewPosts = async () => {
+      try {
+        const response = await fetch(`/.netlify/functions/posts?page=1&limit=5`)
+        if (response.ok) {
+          const data = await response.json()
+          const newPosts = data.posts || []
+          
+          if (newPosts.length > 0 && posts.length > 0) {
+            // Check if there are any new posts
+            const existingIds = new Set(posts.map(post => post.id))
+            const uniqueNewPosts = newPosts.filter(post => !existingIds.has(post.id))
+            
+            if (uniqueNewPosts.length > 0) {
+              console.log('New posts found via polling:', uniqueNewPosts)
+              onPostsUpdate?.(uniqueNewPosts)
+              setLastUpdate(new Date())
+              setNewPostsCount(prev => prev + uniqueNewPosts.length)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Polling failed:', error)
+      }
+    }
+
+    // Poll every 30 seconds as fallback
+    const interval = setInterval(pollForNewPosts, 30000)
+
+    return () => clearInterval(interval)
+  }, [isOnline, posts, onPostsUpdate])
 
   const markPostsAsRead = () => {
     setNewPostsCount(0)

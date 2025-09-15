@@ -12,19 +12,58 @@ interface MobilePostCreationProps {
   activeChannel: Channel
   onSubmit: (data: { channel: Channel; chat_id: string; message: string; password: string }) => void
   isSubmitting: boolean
+  editingPost?: { id: string; chat_id: string; message: string; password: string }
+  onUpdate?: (id: string, data: { channel: Channel; chat_id: string; message: string; password: string }) => void
+  onCancelEdit?: () => void
 }
 
-export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting }: MobilePostCreationProps) {
+export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, editingPost, onUpdate, onCancelEdit }: MobilePostCreationProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [chatId, setChatId] = useState("")
   const [message, setMessage] = useState("")
   const [password, setPassword] = useState("")
+  const [rateLimitError, setRateLimitError] = useState("")
   const sheetRef = useRef<HTMLDivElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Auto-open when editing
+  useEffect(() => {
+    if (editingPost) {
+      setChatId(editingPost.chat_id)
+      setMessage(editingPost.message)
+      setPassword(editingPost.password)
+      setIsOpen(true)
+    } else {
+      setChatId("")
+      setMessage("")
+      setPassword("")
+      setIsOpen(false)
+    }
+  }, [editingPost])
+
+  const checkRateLimit = async () => {
+    try {
+      const response = await fetch("/.netlify/functions/rate-limit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ channel: activeChannel })
+      })
+
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error("Rate limit check failed:", error)
+      return { allowed: true } // Allow on error
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!chatId.trim() || !message.trim()) return
+
+    setRateLimitError("")
 
     // Validate Line ID for English characters only
     if (activeChannel === "Line(라인 아이디)") {
@@ -47,6 +86,15 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting }: Mo
       return
     }
 
+    // Check rate limit for new posts only
+    if (!editingPost) {
+      const rateLimitResult = await checkRateLimit()
+      if (!rateLimitResult.allowed) {
+        setRateLimitError(rateLimitResult.message)
+        return
+      }
+    }
+
     if (editingPost && onUpdate) {
       // Update existing post
       onUpdate(editingPost.id, {
@@ -55,6 +103,9 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting }: Mo
         message: message.trim(),
         password: password.trim()
       })
+      // Close modal and reset editing state
+      setIsOpen(false)
+      onCancelEdit?.()
     } else {
       // Create new post
       onSubmit({
@@ -63,13 +114,12 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting }: Mo
         message: message.trim(),
         password: password.trim()
       })
+      // Reset form
+      setChatId("")
+      setMessage("")
+      setPassword("")
+      setIsOpen(false)
     }
-
-    // Reset form
-    setChatId("")
-    setMessage("")
-    setPassword("")
-    setIsOpen(false)
   }
 
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -142,6 +192,13 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting }: Mo
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="p-4 space-y-4 overflow-y-auto max-h-[60vh]">
+              {/* Rate limit error */}
+              {rateLimitError && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                  <p className="text-sm text-destructive">{rateLimitError}</p>
+                </div>
+              )}
+
               {/* Channel indicator */}
               <div className="text-sm text-muted-foreground">
                 카테고리: <span className="font-medium text-foreground">{activeChannel}</span>

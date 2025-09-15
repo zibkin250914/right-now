@@ -1,12 +1,11 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { MessageSquare, Settings } from "lucide-react"
+import { MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ChannelTabs } from "@/components/channel-tabs"
 import { PostFeed } from "@/components/post-feed"
 import { PostCreationForm } from "@/components/post-creation-form"
-import { PasswordModal } from "@/components/password-modal"
 import { FeedbackModal } from "@/components/feedback-modal"
 import { RealTimeProvider } from "@/components/real-time-provider"
 import { ConnectionStatus } from "@/components/connection-status"
@@ -36,11 +35,6 @@ export default function FlowApp() {
     total: 0
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [passwordModal, setPasswordModal] = useState<{
-    isOpen: boolean
-    postId: string
-    action: "delete" | "edit" // Added edit action support
-  }>({ isOpen: false, postId: "", action: "delete" })
   const [feedbackModal, setFeedbackModal] = useState(false)
   const [editingPost, setEditingPost] = useState<Post | null>(null) // Added editing post state
 
@@ -216,6 +210,8 @@ export default function FlowApp() {
           ...prev,
           total: prev.total + 1
         }))
+      } else {
+        console.error('Failed to create post:', response.status)
       }
     } catch (error) {
       console.error('Failed to create post:', error)
@@ -274,6 +270,38 @@ export default function FlowApp() {
     setPosts((prev) => prev.filter(post => post.id !== deletedPostId))
   }
 
+  const handleEditPost = (postId: string) => {
+    const post = posts.find((p) => p.id === postId)
+    if (post) {
+      setEditingPost(post)
+    }
+  }
+
+  const handleDeletePost = async (postId: string) => {
+    try {
+      const response = await fetch(`/.netlify/functions/posts`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: postId })
+      })
+
+      if (response.ok) {
+        setPosts((prev) => (prev || []).filter((post) => post.id !== postId))
+        // Update pagination total
+        setPagination(prev => ({
+          ...prev,
+          total: Math.max(0, prev.total - 1)
+        }))
+      } else {
+        console.error('Failed to delete post')
+      }
+    } catch (error) {
+      console.error('Failed to delete post:', error)
+    }
+  }
+
   const deletePost = async (postId: string) => {
     try {
       const response = await fetch(`/.netlify/functions/posts`, {
@@ -288,19 +316,6 @@ export default function FlowApp() {
     }
   }
 
-  const handlePasswordVerification = (password: string) => {
-    const post = posts.find((p) => p.id === passwordModal.postId)
-    if (post && post.password === password) {
-      if (passwordModal.action === "delete") {
-        deletePost(passwordModal.postId)
-      } else if (passwordModal.action === "edit") {
-        setEditingPost(post) // Enter edit mode
-      }
-      setPasswordModal({ isOpen: false, postId: "", action: "delete" })
-      return true
-    }
-    return false
-  }
 
   const handleCancelEdit = () => {
     setEditingPost(null)
@@ -330,16 +345,7 @@ export default function FlowApp() {
         <header className="sticky top-0 z-40 bg-background border-b border-border">
           <div className="flex items-center justify-center py-3 sm:py-4 relative px-4">
             <h1 className="text-xl sm:text-2xl font-bold text-primary">Right Now</h1>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-1 sm:gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => window.open('/admin', '_blank')}
-                className="p-1.5 sm:p-2"
-                title="관리자 패널"
-              >
-                <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
-              </Button>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2">
               <Button
                 variant="ghost"
                 size="sm"
@@ -401,8 +407,8 @@ export default function FlowApp() {
               <PostFeed
                 data-post-feed // Added attribute for event dispatching
                 posts={filteredPosts}
-                onDelete={(postId) => setPasswordModal({ isOpen: true, postId, action: "delete" })}
-                onEdit={(postId) => setPasswordModal({ isOpen: true, postId, action: "edit" })} // Added edit handler
+                onDelete={handleDeletePost}
+                onEdit={handleEditPost}
                 loadingMore={loadingMore}
                 hasMore={searchQuery ? searchPagination.hasMore : pagination.hasMore}
               />
@@ -426,15 +432,11 @@ export default function FlowApp() {
           activeChannel={activeChannel}
           onSubmit={addPost}
           isSubmitting={isSubmitting}
+          editingPost={editingPost}
+          onUpdate={updatePost}
+          onCancelEdit={handleCancelEdit}
         />
 
-        {/* Password Modal */}
-        <PasswordModal
-          isOpen={passwordModal.isOpen}
-          action={passwordModal.action}
-          onClose={() => setPasswordModal({ isOpen: false, postId: "", action: "delete" })}
-          onVerify={handlePasswordVerification}
-        />
 
         <FeedbackModal isOpen={feedbackModal} onClose={() => setFeedbackModal(false)} />
       </div>

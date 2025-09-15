@@ -1,4 +1,5 @@
 // Global rate limit store (persists between function calls)
+// Structure: { "ip:channel": timestamp }
 const rateLimitStore = new Map()
 const RATE_LIMIT_WINDOW = 5 * 60 * 1000 // 5 minutes
 
@@ -36,6 +37,16 @@ exports.handler = async (event, context) => {
   }
 
   try {
+    const body = JSON.parse(event.body || '{}')
+    const { channel } = body
+
+    if (!channel) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Channel is required' })
+      }
+    }
 
     const ip = event.headers['x-forwarded-for'] || 
                event.headers['x-real-ip'] || 
@@ -43,7 +54,8 @@ exports.handler = async (event, context) => {
                'unknown'
 
     const now = Date.now()
-    const lastPostTime = rateLimitStore.get(ip)
+    const rateLimitKey = `${ip}:${channel}`
+    const lastPostTime = rateLimitStore.get(rateLimitKey)
 
     if (lastPostTime && now - lastPostTime < RATE_LIMIT_WINDOW) {
       const remainingTime = Math.ceil((RATE_LIMIT_WINDOW - (now - lastPostTime)) / 1000 / 60)
@@ -52,13 +64,13 @@ exports.handler = async (event, context) => {
         headers,
         body: JSON.stringify({
           allowed: false,
-          message: `같은 IP에서는 5분에 한 번만 글을 작성할 수 있습니다. ${remainingTime}분 후에 다시 시도해주세요.`,
+          message: `${channel} 채널에서는 5분에 한 번만 글을 작성할 수 있습니다. ${remainingTime}분 후에 다시 시도해주세요.`,
           remainingMinutes: remainingTime,
         })
       }
     }
 
-    rateLimitStore.set(ip, now)
+    rateLimitStore.set(rateLimitKey, now)
 
     return {
       statusCode: 200,

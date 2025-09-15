@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -88,6 +89,7 @@ export function PostCreationForm({
         headers: {
           "Content-Type": "application/json",
         },
+        body: JSON.stringify({ channel: activeChannel })
       })
 
       const data = await response.json()
@@ -182,7 +184,22 @@ export function PostCreationForm({
             </Button>
           ) : (
             // Expanded state - show form
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-4">
+              {/* Form Header with Close Button */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">글 작성</h3>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsExpanded(false)}
+                  className="p-1 h-8 w-8"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <form onSubmit={handleSubmit} className="space-y-4">
             {/* Chat ID Input */}
             <div>
               <div className="flex items-center gap-2">
@@ -258,7 +275,8 @@ export function PostCreationForm({
                 </Button>
               )}
             </div>
-            </form>
+              </form>
+            </div>
           )}
         </Card>
       </div>
