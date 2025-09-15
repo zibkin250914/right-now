@@ -31,10 +31,36 @@ interface RealTimeProviderProps {
 }
 
 export function RealTimeProvider({ children, posts, onPostsUpdate, onPostUpdate, onPostDelete }: RealTimeProviderProps) {
+  // Get base user count based on time of day
+  const getBaseUserCount = () => {
+    const now = new Date()
+    const hour = now.getHours()
+    
+    // 새벽 1시부터 6시까지: 기본값 없음 (실제 접속자만)
+    if (hour >= 1 && hour < 6) {
+      return 0
+    }
+    // 오전 6시부터 오후 2시까지: 기본값 7
+    else if (hour >= 6 && hour < 14) {
+      return 7
+    }
+    // 오후 2시부터 6시까지: 기본값 10
+    else if (hour >= 14 && hour < 18) {
+      return 10
+    }
+    // 오후 6시부터 새벽 1시까지: 기본값 15
+    else {
+      return 15
+    }
+  }
+
   const [isOnline, setIsOnline] = useState(true)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [newPostsCount, setNewPostsCount] = useState(0)
-  const [activeUsers, setActiveUsers] = useState(1) // Start with 1 (current user)
+  const [activeUsers, setActiveUsers] = useState(() => {
+    const baseUsers = getBaseUserCount()
+    return Math.max(1, 1 + baseUsers) // Current user + base users
+  })
   const [lastKnownPostCount, setLastKnownPostCount] = useState(posts.length)
 
   // Monitor online/offline status
@@ -59,18 +85,24 @@ export function RealTimeProvider({ children, posts, onPostsUpdate, onPostUpdate,
       .channel('active-users')
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState()
-        const users = Object.keys(state).length
-        setActiveUsers(Math.max(1, users)) // At least 1 (current user)
+        const realUsers = Object.keys(state).length
+        const baseUsers = getBaseUserCount()
+        const totalUsers = Math.max(1, realUsers + baseUsers) // At least 1
+        setActiveUsers(totalUsers)
       })
       .on('presence', { event: 'join' }, () => {
         const state = channel.presenceState()
-        const users = Object.keys(state).length
-        setActiveUsers(Math.max(1, users))
+        const realUsers = Object.keys(state).length
+        const baseUsers = getBaseUserCount()
+        const totalUsers = Math.max(1, realUsers + baseUsers)
+        setActiveUsers(totalUsers)
       })
       .on('presence', { event: 'leave' }, () => {
         const state = channel.presenceState()
-        const users = Object.keys(state).length
-        setActiveUsers(Math.max(1, users))
+        const realUsers = Object.keys(state).length
+        const baseUsers = getBaseUserCount()
+        const totalUsers = Math.max(1, realUsers + baseUsers)
+        setActiveUsers(totalUsers)
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -86,6 +118,20 @@ export function RealTimeProvider({ children, posts, onPostsUpdate, onPostUpdate,
       supabase.removeChannel(channel)
     }
   }, [isOnline])
+
+  // Update user count when time changes (every minute)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const baseUsers = getBaseUserCount()
+      setActiveUsers(prev => {
+        // Extract real users from current total
+        const realUsers = Math.max(0, prev - (prev > 1 ? getBaseUserCount() : 0))
+        return Math.max(1, realUsers + baseUsers)
+      })
+    }, 60000) // Update every minute
+
+    return () => clearInterval(interval)
+  }, [])
 
   // Supabase real-time subscription
   useEffect(() => {

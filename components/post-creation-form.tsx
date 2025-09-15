@@ -119,12 +119,16 @@ export function PostCreationForm({
       }
 
       if (editingPost && onUpdatePost) {
-        onUpdatePost(editingPost.id, {
+        await onUpdatePost(editingPost.id, {
           channel: activeChannel,
           chat_id: formData.chat_id,
           message: formData.message,
           password: formData.password,
         })
+        // Reset form and exit edit mode
+        setFormData({ chat_id: "", message: "", password: "" })
+        setErrors({})
+        setIsExpanded(false)
       } else {
         onSubmit({
           channel: activeChannel,
@@ -132,12 +136,11 @@ export function PostCreationForm({
           message: formData.message,
           password: formData.password,
         })
+        // Reset form
+        setFormData({ chat_id: "", message: "", password: "" })
+        setErrors({})
+        setIsExpanded(false) // Collapse form after successful submission
       }
-
-      // Reset form
-      setFormData({ chat_id: "", message: "", password: "" })
-      setErrors({})
-      setIsExpanded(false) // Collapse form after successful submission
     } catch (error) {
       console.error("Submit failed:", error)
     } finally {

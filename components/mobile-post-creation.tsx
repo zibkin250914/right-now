@@ -91,7 +91,7 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
 
     if (editingPost && onUpdate) {
       // Update existing post
-      onUpdate(editingPost.id, {
+      await onUpdate(editingPost.id, {
         channel: activeChannel,
         chat_id: chatId.trim(),
         message: message.trim(),
@@ -100,6 +100,10 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
       // Close modal and reset editing state
       setIsOpen(false)
       onCancelEdit?.()
+      // Reset form fields
+      setChatId("")
+      setMessage("")
+      setPassword("")
     } else {
       // Create new post
       onSubmit({
@@ -129,6 +133,7 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
   // Prevent body scroll when sheet is open
   useEffect(() => {
     if (isOpen) {
+      // Only prevent body scroll, but allow modal content to scroll
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'

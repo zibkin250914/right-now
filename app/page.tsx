@@ -227,12 +227,14 @@ export default function FlowApp() {
 
   const updatePost = async (postId: string, updatedPost: Omit<Post, "id" | "created_at">) => {
     try {
+      console.log('Updating post:', postId, updatedPost)
       const response = await fetch(`/.netlify/functions/posts`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          id: postId,
           channel: updatedPost.channel,
           chat_id: updatedPost.chat_id,
           message: updatedPost.message,
@@ -240,13 +242,26 @@ export default function FlowApp() {
         }),
       })
 
+      console.log('Update response:', response.status, response.ok)
+
       if (response.ok) {
         const data = await response.json()
-        setPosts((prev) => (prev || []).map((post) => (post.id === postId ? (data.post || data) : post)))
+        console.log('Update success:', data)
+        
+        // Update post in local state
+        setPosts((prev) => (prev || []).map((post) => (post.id === postId ? data.post : post)))
         setEditingPost(null) // Exit edit mode
+        
+        // Show success message
+        alert('게시물이 수정되었습니다.')
+      } else {
+        const errorData = await response.json()
+        console.error('Failed to update post:', response.status, errorData)
+        alert(`수정 실패: ${errorData.error || '알 수 없는 오류'}`)
       }
     } catch (error) {
       console.error('Failed to update post:', error)
+      alert('수정 중 오류가 발생했습니다.')
     }
   }
 
@@ -299,6 +314,7 @@ export default function FlowApp() {
 
   const deletePost = async (postId: string) => {
     try {
+      console.log('Deleting post:', postId)
       const response = await fetch(`/.netlify/functions/posts`, {
         method: 'DELETE',
         headers: {
@@ -307,18 +323,31 @@ export default function FlowApp() {
         body: JSON.stringify({ id: postId })
       })
 
+      console.log('Delete response:', response.status, response.ok)
+      
       if (response.ok) {
+        const data = await response.json()
+        console.log('Delete success:', data)
+        
+        // Remove post from local state
         setPosts((prev) => (prev || []).filter((post) => post.id !== postId))
+        
         // Update pagination total
         setPagination(prev => ({
           ...prev,
           total: Math.max(0, prev.total - 1)
         }))
+        
+        // Show success message
+        alert('게시물이 삭제되었습니다.')
       } else {
-        console.error('Failed to delete post')
+        const errorData = await response.json()
+        console.error('Failed to delete post:', response.status, errorData)
+        alert(`삭제 실패: ${errorData.error || '알 수 없는 오류'}`)
       }
     } catch (error) {
       console.error('Failed to delete post:', error)
+      alert('삭제 중 오류가 발생했습니다.')
     }
   }
 

@@ -210,13 +210,28 @@ exports.handler = async (event, context) => {
 
       if (httpMethod === 'DELETE') {
         try {
-          await supabaseRequest(`posts?id=eq.${postId}`, {
-            method: 'DELETE'
+          const data = await supabaseRequest(`posts?id=eq.${postId}`, {
+            method: 'DELETE',
+            headers: {
+              'Prefer': 'return=representation'
+            }
           })
+          
+          if (data.length === 0) {
+            return {
+              statusCode: 404,
+              headers,
+              body: JSON.stringify({ error: 'Post not found' })
+            }
+          }
+          
           return {
             statusCode: 200,
             headers,
-            body: JSON.stringify({ success: true })
+            body: JSON.stringify({ 
+              success: true, 
+              deletedPost: data[0] 
+            })
           }
         } catch (error) {
           console.error('Error deleting post:', error)
