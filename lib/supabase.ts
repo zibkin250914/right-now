@@ -3,13 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = 'https://yubnlqdboiamaoxkisjl.supabase.co'
 const supabaseAnonKey = 'sb_publishable_MlCDY953SXcbwMwjdIqtrQ_3_gOK9Bv'
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  realtime: {
-    params: {
-      eventsPerSecond: 10
-    }
-  }
-})
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Database types
 export interface Post {

@@ -1,7 +1,6 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
-import { supabase } from "@/lib/supabase"
 import type { Post } from "@/lib/supabase"
 
 interface RealTimeContextType {
@@ -24,12 +23,10 @@ export function useRealTime() {
 interface RealTimeProviderProps {
   children: ReactNode
   posts: Post[]
-  onPostsUpdate?: (newPosts: Post[]) => void
-  onPostUpdate?: (updatedPost: Post) => void
-  onPostDelete?: (deletedPostId: string) => void
+  onPostsUpdate?: (posts: Post[]) => void
 }
 
-export function RealTimeProvider({ children, posts, onPostsUpdate, onPostUpdate, onPostDelete }: RealTimeProviderProps) {
+export function RealTimeProvider({ children, posts, onPostsUpdate }: RealTimeProviderProps) {
   const [isOnline, setIsOnline] = useState(true)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [newPostsCount, setNewPostsCount] = useState(0)
@@ -49,79 +46,19 @@ export function RealTimeProvider({ children, posts, onPostsUpdate, onPostUpdate,
     }
   }, [])
 
-  // Supabase real-time subscription
+  // Simulate real-time updates (in a real app, this would be WebSocket or Server-Sent Events)
   useEffect(() => {
     if (!isOnline) return
 
-    console.log('Setting up real-time subscription for posts...')
+    const interval = setInterval(() => {
+      // Just update the last update time without generating posts
+      setLastUpdate(new Date())
+    }, 10000) // Check every 10 seconds
 
-    const channel = supabase
-      .channel('posts-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'posts'
-        },
-        (payload) => {
-          console.log('New post received:', payload)
-          const newPost = payload.new as Post
-          
-          // Add the new post to the beginning of the list
-          onPostsUpdate?.([newPost])
-          setLastUpdate(new Date())
-          setNewPostsCount(prev => prev + 1)
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'posts'
-        },
-        (payload) => {
-          console.log('Post updated:', payload)
-          const updatedPost = payload.new as Post
-          
-          // Update the post in the list
-          onPostUpdate?.(updatedPost)
-          setLastUpdate(new Date())
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'posts'
-        },
-        (payload) => {
-          console.log('Post deleted:', payload)
-          const deletedPost = payload.old as Post
-          
-          // Remove the post from the list
-          onPostDelete?.(deletedPost.id)
-          setLastUpdate(new Date())
-        }
-      )
-      .subscribe((status) => {
-        console.log('Subscription status:', status)
-        if (status === 'SUBSCRIBED') {
-          console.log('Successfully subscribed to posts changes')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('Failed to subscribe to posts changes')
-        }
-      })
+    return () => clearInterval(interval)
+  }, [isOnline])
 
-    return () => {
-      console.log('Cleaning up real-time subscription...')
-      supabase.removeChannel(channel)
-    }
-  }, [isOnline, onPostsUpdate])
-
-  // Track new posts count
+  // Track new posts
   useEffect(() => {
     if (posts.length > lastKnownPostCount) {
       setNewPostsCount((prev) => prev + (posts.length - lastKnownPostCount))

@@ -7,25 +7,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
 import { Plus, X } from "lucide-react"
 import type { Channel } from "@/app/page"
-import type { Post } from "@/lib/supabase"
 
 interface MobilePostCreationProps {
   activeChannel: Channel
   onSubmit: (data: { channel: Channel; chat_id: string; message: string; password: string }) => void
-  onUpdate?: (postId: string, data: { channel: Channel; chat_id: string; message: string; password: string }) => void
   isSubmitting: boolean
-  editingPost?: Post | null
-  onCancelEdit?: () => void
 }
 
-export function MobilePostCreation({ 
-  activeChannel, 
-  onSubmit, 
-  onUpdate, 
-  isSubmitting, 
-  editingPost, 
-  onCancelEdit 
-}: MobilePostCreationProps) {
+export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting }: MobilePostCreationProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [chatId, setChatId] = useState("")
   const [message, setMessage] = useState("")
@@ -33,87 +22,32 @@ export function MobilePostCreation({
   const sheetRef = useRef<HTMLDivElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
 
-  // Update form when editing post changes
-  useEffect(() => {
-    if (editingPost) {
-      setChatId(editingPost.chat_id)
-      setMessage(editingPost.message)
-      setPassword("") // Clear password for security
-      setIsOpen(true)
-    } else {
-      setChatId("")
-      setMessage("")
-      setPassword("")
-      setIsOpen(false)
-    }
-  }, [editingPost])
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!chatId.trim() || !message.trim()) return
+    if (!chatId.trim() || !message.trim() || !password.trim()) return
 
-    // Validate Line ID for English characters only
-    if (activeChannel === "Line(라인 아이디)") {
-      const englishRegex = /^[a-zA-Z0-9._-]+$/
-      if (!englishRegex.test(chatId)) {
-        alert('라인 아이디는 영문, 숫자, 특수문자(._-)만 사용 가능합니다.')
-        return
-      }
-    }
-
-    // For editing, password is required
-    if (editingPost && !password.trim()) {
-      alert('수정을 위해 비밀번호를 입력해주세요.')
-      return
-    }
-
-    // For new posts, password is required
-    if (!editingPost && !password.trim()) {
-      alert('비밀번호를 입력해주세요.')
-      return
-    }
-
-    if (editingPost && onUpdate) {
-      // Update existing post
-      onUpdate(editingPost.id, {
-        channel: activeChannel,
-        chat_id: chatId.trim(),
-        message: message.trim(),
-        password: password.trim()
-      })
-    } else {
-      // Create new post
-      onSubmit({
-        channel: activeChannel,
-        chat_id: chatId.trim(),
-        message: message.trim(),
-        password: password.trim()
-      })
-    }
+    onSubmit({
+      channel: activeChannel,
+      chat_id: chatId.trim(),
+      message: message.trim(),
+      password: password.trim()
+    })
 
     // Reset form
     setChatId("")
     setMessage("")
     setPassword("")
     setIsOpen(false)
-    onCancelEdit?.()
   }
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === backdropRef.current) {
       setIsOpen(false)
-      onCancelEdit?.()
     }
   }
 
   const handleSwipeDown = () => {
     setIsOpen(false)
-    onCancelEdit?.()
-  }
-
-  const handleClose = () => {
-    setIsOpen(false)
-    onCancelEdit?.()
   }
 
   // Prevent body scroll when sheet is open
@@ -163,13 +97,11 @@ export function MobilePostCreation({
 
             {/* Header */}
             <div className="flex items-center justify-between px-4 pb-4 border-b border-border">
-              <h2 className="text-lg font-semibold">
-                {editingPost ? "게시물 수정" : "새 게시물 작성"}
-              </h2>
+              <h2 className="text-lg font-semibold">새 게시물 작성</h2>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleClose}
+                onClick={() => setIsOpen(false)}
                 className="h-8 w-8 p-0"
               >
                 <X className="h-4 w-4" />
@@ -195,7 +127,7 @@ export function MobilePostCreation({
                   <Input
                     value={chatId}
                     onChange={(e) => setChatId(e.target.value)}
-                    placeholder={activeChannel === "whereby(화상채팅)" ? "room-name" : "영문, 숫자, 특수문자(._-)만 사용"}
+                    placeholder={activeChannel === "whereby(화상채팅)" ? "room-name" : "라인 아이디"}
                     className="flex-1"
                     maxLength={50}
                   />
@@ -225,11 +157,11 @@ export function MobilePostCreation({
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={editingPost ? "수정을 위해 비밀번호를 입력하세요" : "비밀번호 (4-8자리)"}
+                  placeholder="비밀번호 (4-8자리)"
                   maxLength={8}
                 />
                 <p className="text-xs text-muted-foreground">
-                  {editingPost ? "수정을 위해 비밀번호가 필요합니다" : "게시물 수정/삭제 시 필요합니다"}
+                  게시물 수정/삭제 시 필요합니다
                 </p>
               </div>
 
@@ -239,10 +171,7 @@ export function MobilePostCreation({
                 disabled={!chatId.trim() || !message.trim() || !password.trim() || isSubmitting}
                 className="w-full"
               >
-                {isSubmitting 
-                  ? (editingPost ? "수정 중..." : "등록 중...") 
-                  : (editingPost ? "수정" : "등록")
-                }
+                {isSubmitting ? "등록 중..." : "등록"}
               </Button>
             </form>
           </div>

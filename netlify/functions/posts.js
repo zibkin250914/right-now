@@ -136,34 +136,8 @@ exports.handler = async (event, context) => {
     }
 
     // Individual post operations (PUT, DELETE)
-    if (httpMethod === 'PUT' || httpMethod === 'DELETE') {
-      let postId
-      
-      // Try to get postId from path segments first
-      if (pathSegments.length > 2) {
-        postId = pathSegments[2]
-      } else {
-        // If not in path, try to get from request body
-        try {
-          const requestBody = JSON.parse(body)
-          postId = requestBody.id
-        } catch (parseError) {
-          console.error('Failed to parse body for postId:', parseError)
-          return {
-            statusCode: 400,
-            headers,
-            body: JSON.stringify({ error: 'Post ID is required' })
-          }
-        }
-      }
-
-      if (!postId) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ error: 'Post ID is required' })
-        }
-      }
+    if (pathSegments.length > 2 && (httpMethod === 'PUT' || httpMethod === 'DELETE')) {
+      const postId = pathSegments[2]
 
       if (httpMethod === 'PUT') {
         const { channel, chat_id, message, password } = JSON.parse(body)
