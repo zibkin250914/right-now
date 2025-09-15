@@ -34,6 +34,7 @@ export function PostCreationForm({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [rateLimitError, setRateLimitError] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
 
   useEffect(() => {
     if (editingPost) {
@@ -42,8 +43,10 @@ export function PostCreationForm({
         message: editingPost.message,
         password: editingPost.password,
       })
+      setIsExpanded(true) // Auto-expand when editing
     } else {
       setFormData({ chat_id: "", message: "", password: "" })
+      setIsExpanded(false) // Collapse when not editing
     }
     setErrors({})
     setRateLimitError("")
@@ -54,6 +57,12 @@ export function PostCreationForm({
 
     if (!formData.chat_id.trim()) {
       newErrors.chat_id = activeChannel === "whereby(화상채팅)" ? "room-name을 입력해주세요" : "라인 아이디를 입력해주세요"
+    } else if (activeChannel === "Line(라인 아이디)") {
+      // Check if Line ID contains only English characters, numbers, and common symbols
+      const englishRegex = /^[a-zA-Z0-9._-]+$/
+      if (!englishRegex.test(formData.chat_id)) {
+        newErrors.chat_id = "라인 아이디는 영문, 숫자, 특수문자(._-)만 사용 가능합니다"
+      }
     }
 
     if (!formData.message.trim()) {
@@ -126,6 +135,7 @@ export function PostCreationForm({
       // Reset form
       setFormData({ chat_id: "", message: "", password: "" })
       setErrors({})
+      setIsExpanded(false) // Collapse form after successful submission
     } catch (error) {
       console.error("Submit failed:", error)
     } finally {
@@ -140,6 +150,7 @@ export function PostCreationForm({
     setFormData({ chat_id: "", message: "", password: "" })
     setErrors({})
     setRateLimitError("")
+    setIsExpanded(false) // Collapse form when canceling
   }
 
   const getFieldClassName = (fieldName: string, hasError: boolean) => {
@@ -160,7 +171,18 @@ export function PostCreationForm({
             </Alert>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {!isExpanded ? (
+            // Collapsed state - show button
+            <Button
+              onClick={() => setIsExpanded(true)}
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+              size="lg"
+            >
+              작성하기
+            </Button>
+          ) : (
+            // Expanded state - show form
+            <form onSubmit={handleSubmit} className="space-y-4">
             {/* Chat ID Input */}
             <div>
               <div className="flex items-center gap-2">
@@ -173,7 +195,7 @@ export function PostCreationForm({
                   <Input
                     value={formData.chat_id}
                     onChange={(e) => setFormData({ ...formData, chat_id: e.target.value })}
-                    placeholder={activeChannel === "whereby(화상채팅)" ? "room-name" : "라인 아이디 입력"}
+                    placeholder={activeChannel === "whereby(화상채팅)" ? "room-name" : "영문, 숫자, 특수문자(._-)만 사용"}
                     className={`${getFieldClassName("chat_id", !!errors.chat_id)} placeholder:text-muted-foreground/60`}
                   />
                   {errors.chat_id && <p className="text-xs text-destructive mt-1">{errors.chat_id}</p>}
@@ -203,11 +225,13 @@ export function PostCreationForm({
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="비밀번호 (4-8자리)"
+                placeholder={editingPost ? "수정을 위해 비밀번호를 입력하세요" : "비밀번호 (4-8자리)"}
                 className={`${getFieldClassName("password", !!errors.password)} placeholder:text-muted-foreground/60`}
               />
               {errors.password && <p className="text-xs text-destructive mt-1">{errors.password}</p>}
-              <p className="text-xs text-muted-foreground mt-1">게시물 수정/삭제 시 필요합니다</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {editingPost ? "수정을 위해 비밀번호가 필요합니다" : "게시물 수정/삭제 시 필요합니다"}
+              </p>
             </div>
 
             <div className="pt-2">
@@ -234,7 +258,8 @@ export function PostCreationForm({
                 </Button>
               )}
             </div>
-          </form>
+            </form>
+          )}
         </Card>
       </div>
     </div>

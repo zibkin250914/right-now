@@ -15,7 +15,7 @@ import { SearchBar } from "@/components/search-bar"
 import { MobilePostCreation } from "@/components/mobile-post-creation"
 import type { Post } from "@/lib/supabase"
 
-export type Channel = "영화" | "게임" | "스터디" | "일상" | "자유" | "whereby(화상채팅)" | "Line(라인 아이디)"
+export type Channel = "whereby(화상채팅)" | "Line(라인 아이디)"
 
 export default function FlowApp() {
   const [activeChannel, setActiveChannel] = useState<Channel>("whereby(화상채팅)")
@@ -232,6 +232,7 @@ export default function FlowApp() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          id: postId,
           channel: updatedPost.channel,
           chat_id: updatedPost.chat_id,
           message: updatedPost.message,
@@ -250,20 +251,59 @@ export default function FlowApp() {
   }
 
   const handleRealTimePostsUpdate = (newPosts: Post[]) => {
-    setPosts((prev) => [...(newPosts || []), ...(prev || [])])
+    if (!newPosts || newPosts.length === 0) return
+    
+    setPosts((prev) => {
+      // Check if any of the new posts already exist to avoid duplicates
+      const existingIds = new Set(prev.map(post => post.id))
+      const uniqueNewPosts = newPosts.filter(post => !existingIds.has(post.id))
+      
+      if (uniqueNewPosts.length === 0) return prev
+      
+      // Add new posts to the beginning of the list
+      return [...uniqueNewPosts, ...prev]
+    })
+  }
+
+  const handleRealTimePostUpdate = (updatedPost: Post) => {
+    setPosts((prev) => 
+      prev.map(post => post.id === updatedPost.id ? updatedPost : post)
+    )
+  }
+
+  const handleRealTimePostDelete = (deletedPostId: string) => {
+    setPosts((prev) => prev.filter(post => post.id !== deletedPostId))
   }
 
   const deletePost = async (postId: string) => {
     try {
       const response = await fetch(`/.netlify/functions/posts`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: postId,
+        }),
       })
 
       if (response.ok) {
+        // Remove from local state immediately for better UX
         setPosts((prev) => (prev || []).filter((post) => post.id !== postId))
+        setPasswordModal({ isOpen: false, postId: "", action: "delete" })
+        
+        // Update pagination total
+        setPagination(prev => ({
+          ...prev,
+          total: Math.max(0, prev.total - 1)
+        }))
+      } else {
+        console.error('Delete failed:', response.status, response.statusText)
+        alert('삭제에 실패했습니다. 다시 시도해주세요.')
       }
     } catch (error) {
       console.error('Failed to delete post:', error)
+      alert('삭제 중 오류가 발생했습니다. 다시 시도해주세요.')
     }
   }
 
@@ -298,7 +338,12 @@ export default function FlowApp() {
     : posts?.filter((post) => post.channel === activeChannel) || []
 
   return (
-    <RealTimeProvider posts={posts} onPostsUpdate={handleRealTimePostsUpdate}>
+    <RealTimeProvider 
+      posts={posts} 
+      onPostsUpdate={handleRealTimePostsUpdate}
+      onPostUpdate={handleRealTimePostUpdate}
+      onPostDelete={handleRealTimePostDelete}
+    >
       <div className="min-h-screen bg-background">
         {/* Header */}
         <header className="sticky top-0 z-40 bg-background border-b border-border">
@@ -376,7 +421,12 @@ export default function FlowApp() {
                 data-post-feed // Added attribute for event dispatching
                 posts={filteredPosts}
                 onDelete={(postId) => setPasswordModal({ isOpen: true, postId, action: "delete" })}
-                onEdit={(postId) => setPasswordModal({ isOpen: true, postId, action: "edit" })} // Added edit handler
+                onEdit={(postId) => {
+                  const post = posts.find(p => p.id === postId)
+                  if (post) {
+                    setEditingPost(post)
+                  }
+                }}
                 loadingMore={loadingMore}
                 hasMore={searchQuery ? searchPagination.hasMore : pagination.hasMore}
               />
@@ -399,7 +449,10 @@ export default function FlowApp() {
         <MobilePostCreation
           activeChannel={activeChannel}
           onSubmit={addPost}
+          onUpdate={updatePost}
           isSubmitting={isSubmitting}
+          editingPost={editingPost}
+          onCancelEdit={() => setEditingPost(null)}
         />
 
         {/* Password Modal */}
