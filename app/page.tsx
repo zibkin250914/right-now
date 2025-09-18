@@ -14,10 +14,10 @@ import { SearchBar } from "@/components/search-bar"
 import { MobilePostCreation } from "@/components/mobile-post-creation"
 import type { Post } from "@/lib/supabase"
 
-export type Channel = "whereby(화상채팅)" | "Line(라인 아이디)"
+export type Channel = "전체" | "whereby(화상채팅)" | "Line(라인 아이디)" | "오픈카톡"
 
 export default function FlowApp() {
-  const [activeChannel, setActiveChannel] = useState<Channel>("whereby(화상채팅)")
+  const [activeChannel, setActiveChannel] = useState<Channel>("전체")
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -45,6 +45,26 @@ export default function FlowApp() {
   }>({ isOpen: false, postId: "", action: "delete" })
 
   const mainRef = useRef<HTMLElement>(null)
+
+  // 초성 추출 함수
+  const getInitials = (text: string): string => {
+    const initials: string[] = []
+    for (let i = 0; i < text.length; i++) {
+      const char = text.charAt(i)
+      const code = char.charCodeAt(0)
+      
+      // 한글인지 확인 (가-힣 범위)
+      if (code >= 0xAC00 && code <= 0xD7A3) {
+        const initialCode = Math.floor((code - 0xAC00) / 28 / 21)
+        const initial = String.fromCharCode(0x1100 + initialCode)
+        initials.push(initial)
+      } else {
+        // 한글이 아닌 경우 원본 문자 그대로 추가
+        initials.push(char)
+      }
+    }
+    return initials.join('')
+  }
 
   // Load posts from database
   useEffect(() => {
@@ -151,15 +171,27 @@ export default function FlowApp() {
         const data = await response.json()
         const allPosts = data.posts || []
         
-        // Filter by channel first
-        const channelPosts = allPosts.filter(post => post.channel === channel)
+        // Filter by channel first (show all if "전체" is selected)
+        const channelPosts = channel === "전체" 
+          ? allPosts 
+          : allPosts.filter(post => post.channel === channel)
         
-        // Client-side search
+        // Client-side search with initial consonant support
         const searchTerm = query.toLowerCase()
-        const filteredPosts = channelPosts.filter(post => 
-          post.chat_id.toLowerCase().includes(searchTerm) || 
-          post.message.toLowerCase().includes(searchTerm)
-        )
+        const filteredPosts = channelPosts.filter(post => {
+          const chatIdLower = post.chat_id.toLowerCase()
+          const messageLower = post.message.toLowerCase()
+          
+          // 일반 검색
+          const normalMatch = chatIdLower.includes(searchTerm) || messageLower.includes(searchTerm)
+          
+          // 초성 검색
+          const chatIdInitials = getInitials(post.chat_id).toLowerCase()
+          const messageInitials = getInitials(post.message).toLowerCase()
+          const initialMatch = chatIdInitials.includes(searchTerm) || messageInitials.includes(searchTerm)
+          
+          return normalMatch || initialMatch
+        })
         
         setSearchResults(filteredPosts)
         setSearchPagination({
@@ -398,8 +430,8 @@ export default function FlowApp() {
 
 
   const filteredPosts = searchQuery 
-    ? searchResults?.filter((post) => post.channel === activeChannel) || []
-    : posts?.filter((post) => post.channel === activeChannel) || []
+    ? searchResults?.filter((post) => activeChannel === "전체" || post.channel === activeChannel) || []
+    : posts?.filter((post) => activeChannel === "전체" || post.channel === activeChannel) || []
 
   return (
     <RealTimeProvider 

@@ -7,6 +7,25 @@ import { Trash2, ExternalLink, Edit, Copy } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import type { Post } from "@/lib/supabase"
 
+// 채널별 테마 색상 정의
+const channelColors = {
+  "whereby(화상채팅)": {
+    card: "bg-red-50 border-red-200",
+    text: "text-red-800",
+    button: "border-red-300 text-red-700 hover:bg-red-100"
+  },
+  "Line(라인 아이디)": {
+    card: "bg-green-50 border-green-200",
+    text: "text-green-800",
+    button: "border-green-300 text-green-700 hover:bg-green-100"
+  },
+  "오픈카톡": {
+    card: "bg-yellow-50 border-yellow-200",
+    text: "text-yellow-800",
+    button: "border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+  }
+}
+
 interface PostFeedProps {
   posts: Post[]
   onDelete: (postId: string) => void
@@ -42,8 +61,8 @@ export function PostFeed({ posts, onDelete, onEdit, loadingMore, hasMore, newPos
   }, [newPostIds, animatedPosts])
 
   const handleJoinChat = (chatId: string) => {
-    const chatUrl = `https://whereby.com/${chatId}`
-    window.open(chatUrl, "_blank")
+    // chatId is now the full URL, so use it directly
+    window.open(chatId, "_blank")
   }
 
   const handleCopyLineId = async (lineId: string) => {
@@ -80,6 +99,29 @@ export function PostFeed({ posts, onDelete, onEdit, loadingMore, hasMore, newPos
     return `${diffInDays}일 전`
   }
 
+  // 링크를 감지하고 하이퍼링크로 변환하는 함수
+  const renderMessageWithLinks = (message: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g
+    const parts = message.split(urlRegex)
+    
+    return parts.map((part, index) => {
+      if (urlRegex.test(part)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 underline break-all"
+          >
+            {part}
+          </a>
+        )
+      }
+      return part
+    })
+  }
+
   if (posts.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-4">
@@ -97,11 +139,14 @@ export function PostFeed({ posts, onDelete, onEdit, loadingMore, hasMore, newPos
       {posts.map((post, index) => {
         const isNewPost = animatedPosts.has(post.id)
         const isNewlyAdded = newPostIds.includes(post.id)
+        const channelColor = channelColors[post.channel as keyof typeof channelColors]
         
         return (
           <Card
             key={post.id}
-            className={`p-3 sm:p-4 bg-card border border-border transition-all duration-300 ${
+            className={`p-3 sm:p-4 border transition-all duration-300 ${
+              channelColor ? channelColor.card : 'bg-card border-border'
+            } ${
               isNewPost || isNewlyAdded 
                 ? 'new-post-enter new-post-highlight new-post-glow new-post-creation new-post-color-transition' 
                 : ''
@@ -131,14 +176,21 @@ export function PostFeed({ posts, onDelete, onEdit, loadingMore, hasMore, newPos
 
             {/* Post Content */}
             <div className="space-y-2">
-              <p className="text-foreground font-medium text-sm sm:text-base leading-relaxed break-words">
-                {post.message}
+              <p className={`font-medium text-sm sm:text-base leading-relaxed break-words ${
+                channelColor ? channelColor.text : 'text-foreground'
+              }`}>
+                {renderMessageWithLinks(post.message)}
               </p>
               
               {/* Chat info and time */}
               <div className="space-y-1">
-                <div className="text-xs sm:text-sm text-muted-foreground font-bold break-all">
-                  {post.channel === "whereby(화상채팅)" ? `whereby.com/${post.chat_id}` : `라인 아이디: ${post.chat_id}`}
+                <div className={`text-xs sm:text-sm font-bold break-all ${
+                  channelColor ? channelColor.text : 'text-muted-foreground'
+                }`}>
+                  {post.channel === "whereby(화상채팅)" ? `whereby: ${post.chat_id}` : 
+                   post.channel === "Line(라인 아이디)" ? `라인 아이디: ${post.chat_id}` :
+                   post.channel === "오픈카톡" ? `오픈카톡: https://open.kakao.com/o/${post.chat_id}` :
+                   `${post.chat_id}`}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {formatTimeAgo(post.created_at)}
@@ -152,7 +204,9 @@ export function PostFeed({ posts, onDelete, onEdit, loadingMore, hasMore, newPos
                 onClick={() => handleJoinChat(post.chat_id)}
                 size="sm"
                 variant="outline"
-                className="w-full sm:w-auto border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+                className={`w-full sm:w-auto transition-colors ${
+                  channelColor ? channelColor.button : 'border-primary text-primary hover:bg-primary hover:text-primary-foreground'
+                }`}
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
                 바로가기
@@ -165,10 +219,27 @@ export function PostFeed({ posts, onDelete, onEdit, loadingMore, hasMore, newPos
                 onClick={() => handleCopyLineId(post.chat_id)}
                 size="sm"
                 variant="outline"
-                className="w-full sm:w-auto border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+                className={`w-full sm:w-auto transition-colors ${
+                  channelColor ? channelColor.button : 'border-primary text-primary hover:bg-primary hover:text-primary-foreground'
+                }`}
               >
                 <Copy className="h-4 w-4 mr-2" />
                 ID 복사하기
+              </Button>
+            )}
+            
+            {/* 오픈카톡 바로가기 button */}
+            {post.channel === "오픈카톡" && (
+              <Button
+                onClick={() => window.open(`https://open.kakao.com/o/${post.chat_id}`, "_blank")}
+                size="sm"
+                variant="outline"
+                className={`w-full sm:w-auto transition-colors ${
+                  channelColor ? channelColor.button : 'border-primary text-primary hover:bg-primary hover:text-primary-foreground'
+                }`}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                바로가기
               </Button>
             )}
           </div>

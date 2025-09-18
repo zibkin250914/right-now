@@ -23,6 +23,7 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
   const [message, setMessage] = useState("")
   const [password, setPassword] = useState("")
   const [rateLimitError, setRateLimitError] = useState("")
+  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
 
@@ -32,14 +33,26 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
       setChatId(editingPost.chat_id)
       setMessage(editingPost.message)
       setPassword(editingPost.password)
+      setSelectedChannel(editingPost.channel)
       setIsOpen(true)
     } else {
       setChatId("")
       setMessage("")
       setPassword("")
+      setSelectedChannel(null)
       setIsOpen(false)
     }
   }, [editingPost])
+
+  // activeChannel에 따라 selectedChannel 초기화
+  useEffect(() => {
+    if (activeChannel !== "전체") {
+      setSelectedChannel(activeChannel)
+    } else {
+      setSelectedChannel(null)
+    }
+  }, [activeChannel])
+
 
   const checkRateLimit = async () => {
     try {
@@ -48,7 +61,7 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ channel: activeChannel })
+        body: JSON.stringify({ channel: selectedChannel })
       })
 
       const data = await response.json()
@@ -65,11 +78,29 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
 
     setRateLimitError("")
 
+    // Validate whereby link
+    if (selectedChannel === "whereby(화상채팅)") {
+      const urlRegex = /^https?:\/\/whereby\.com\/[a-zA-Z0-9._-]+$/
+      if (!urlRegex.test(chatId)) {
+        alert('올바른 whereby 링크를 입력해주세요 (예: https://whereby.com/room-name)')
+        return
+      }
+    }
+    
     // Validate Line ID for English characters only
-    if (activeChannel === "Line(라인 아이디)") {
+    if (selectedChannel === "Line(라인 아이디)") {
       const englishRegex = /^[a-zA-Z0-9._-]+$/
       if (!englishRegex.test(chatId)) {
         alert('라인 아이디는 영문, 숫자, 특수문자(._-)만 사용 가능합니다.')
+        return
+      }
+    }
+    
+    // Validate Kakao link for English characters only
+    if (selectedChannel === "오픈카톡") {
+      const englishRegex = /^[a-zA-Z0-9._-]+$/
+      if (!englishRegex.test(chatId)) {
+        alert('오픈카톡 링크는 영문, 숫자, 특수문자(._-)만 사용 가능합니다.')
         return
       }
     }
@@ -92,7 +123,7 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
     if (editingPost && onUpdate) {
       // Update existing post
       const success = await onUpdate(editingPost.id, {
-        channel: activeChannel,
+        channel: selectedChannel,
         chat_id: chatId.trim(),
         message: message.trim(),
         password: password.trim()
@@ -110,7 +141,7 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
     } else {
       // Create new post
       onSubmit({
-        channel: activeChannel,
+        channel: selectedChannel,
         chat_id: chatId.trim(),
         message: message.trim(),
         password: password.trim()
@@ -201,32 +232,66 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
                 </div>
               )}
 
-              {/* Channel indicator */}
-              <div className="text-sm text-muted-foreground">
-                카테고리: <span className="font-medium text-foreground">{activeChannel}</span>
-              </div>
+        {/* Channel Selection Radio Buttons */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">채널 선택</label>
+          <div className="flex gap-4">
+            {[
+              { value: "whereby(화상채팅)", label: "whereby(화상채팅)" },
+              { value: "Line(라인 아이디)", label: "Line(라인 아이디)" },
+              { value: "오픈카톡", label: "오픈카톡" }
+            ].map((channel) => (
+              <label
+                key={channel.value}
+                className={`flex items-center gap-2 cursor-pointer transition-all ${
+                  activeChannel === "전체" ? "" : "opacity-50 pointer-events-none"
+                }`}
+              >
+                  <input
+                    type="radio"
+                    name="channel"
+                    value={channel.value}
+                    checked={selectedChannel === channel.value}
+                    onChange={(e) => setSelectedChannel(e.target.value as Channel)}
+                    className="w-4 h-4"
+                    disabled={activeChannel !== "전체"}
+                  />
+                <span className="text-sm font-medium">{channel.label}</span>
+              </label>
+            ))}
+          </div>
+          {activeChannel === "전체" && !selectedChannel && (
+            <p className="text-sm text-blue-600">작성 타입을 먼저 선택하세요</p>
+          )}
+        </div>
 
               {/* Chat ID input */}
-              <div className="space-y-2">
+              <div className={`space-y-2 ${activeChannel === "전체" && !selectedChannel ? "opacity-50 pointer-events-none" : ""}`}>
                 <label className="text-sm font-medium">
-                  {activeChannel === "whereby(화상채팅)" ? "Room Name" : "라인 아이디"}
+                  {selectedChannel === "whereby(화상채팅)" ? "주소 링크" : 
+                   selectedChannel === "Line(라인 아이디)" ? "라인 아이디" :
+                   selectedChannel === "오픈카톡" ? "오픈카톡 링크" :
+                   "채팅방 정보"}
                 </label>
                 <div className="flex items-center gap-2">
-                  {activeChannel === "whereby(화상채팅)" && (
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">whereby.com/</span>
-                  )}
                   <Input
                     value={chatId}
                     onChange={(e) => setChatId(e.target.value)}
-                    placeholder={activeChannel === "whereby(화상채팅)" ? "room-name" : "영문, 숫자, 특수문자(._-)만 사용"}
-                    className="flex-1"
+                    placeholder={
+                      selectedChannel === "whereby(화상채팅)" ? "https://whereby.com/room-name" : 
+                      selectedChannel === "Line(라인 아이디)" ? "영문, 숫자, 특수문자(._-)만 사용" :
+                      selectedChannel === "오픈카톡" ? "https://open.kakao.com/o/..." :
+                      "채널을 선택하세요"
+                    }
+                    className="flex-1 placeholder:text-muted-foreground/50"
                     maxLength={50}
+                    disabled={activeChannel === "전체" && !selectedChannel}
                   />
                 </div>
               </div>
 
               {/* Message input */}
-              <div className="space-y-2">
+              <div className={`space-y-2 ${activeChannel === "전체" && !selectedChannel ? "opacity-50 pointer-events-none" : ""}`}>
                 <label className="text-sm font-medium">본문</label>
                 <Textarea
                   value={message}
@@ -234,7 +299,8 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
                   placeholder="본문을 입력하세요."
                   rows={4}
                   maxLength={200}
-                  className="resize-none"
+                  className="resize-none placeholder:text-muted-foreground/50"
+                  disabled={activeChannel === "전체" && !selectedChannel}
                 />
                 <div className="text-xs text-muted-foreground text-right">
                   {message.length}/200
@@ -242,14 +308,16 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
               </div>
 
               {/* Password input */}
-              <div className="space-y-2">
+              <div className={`space-y-2 ${activeChannel === "전체" && !selectedChannel ? "opacity-50 pointer-events-none" : ""}`}>
                 <label className="text-sm font-medium">비밀번호</label>
                 <Input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="비밀번호 (4-8자리)"
+                  className="placeholder:text-muted-foreground/50"
                   maxLength={8}
+                  disabled={activeChannel === "전체" && !selectedChannel}
                 />
                 <p className="text-xs text-muted-foreground">
                   {editingPost ? "수정을 위해 비밀번호가 필요합니다" : "게시물 수정/삭제 시 필요합니다"}
@@ -257,13 +325,15 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
               </div>
 
               {/* Submit button */}
-              <Button
-                type="submit"
-                disabled={!chatId.trim() || !message.trim() || !password.trim() || isSubmitting}
-                className="w-full"
-              >
-                {isSubmitting ? "등록 중..." : "등록"}
-              </Button>
+              <div className={`${activeChannel === "전체" && !selectedChannel ? "opacity-50 pointer-events-none" : ""}`}>
+                <Button
+                  type="submit"
+                  disabled={!chatId.trim() || !message.trim() || !password.trim() || isSubmitting || (activeChannel === "전체" && !selectedChannel)}
+                  className="w-full"
+                >
+                  {isSubmitting ? "등록 중..." : "등록"}
+                </Button>
+              </div>
             </form>
           </div>
         </div>

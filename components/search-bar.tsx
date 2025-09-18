@@ -47,7 +47,7 @@ export function SearchBar({ activeChannel, onSearch, onClear, isSearching }: Sea
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           type="text"
-          placeholder={`${activeChannel}에서 검색...`}
+          placeholder={`${activeChannel}에서 검색... (초성 검색 가능)`}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="pl-10 pr-10 text-sm sm:text-base"
