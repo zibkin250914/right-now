@@ -87,10 +87,10 @@ export function PostCreationForm({
         newErrors.chat_id = "라인 아이디는 영문, 숫자, 특수문자(._-)만 사용 가능합니다"
       }
     } else if (selectedChannel === "오픈카톡") {
-      // Check if Kakao link contains only English characters, numbers, and common symbols
-      const englishRegex = /^[a-zA-Z0-9._-]+$/
-      if (!englishRegex.test(formData.chat_id)) {
-        newErrors.chat_id = "오픈카톡 링크는 영문, 숫자, 특수문자(._-)만 사용 가능합니다"
+      // Check if Kakao link is a valid URL
+      const urlRegex = /^https?:\/\/open\.kakao\.com\/o\/[a-zA-Z0-9._-]+$/
+      if (!urlRegex.test(formData.chat_id)) {
+        newErrors.chat_id = "올바른 오픈카톡 링크를 입력해주세요 (예: https://open.kakao.com/o/abc123)"
       }
     }
 

@@ -187,9 +187,9 @@ export function PostFeed({ posts, onDelete, onEdit, loadingMore, hasMore, newPos
                 <div className={`text-xs sm:text-sm font-bold break-all ${
                   channelColor ? channelColor.text : 'text-muted-foreground'
                 }`}>
-                  {post.channel === "whereby(화상채팅)" ? `whereby: ${post.chat_id}` : 
+                  {post.channel === "whereby(화상채팅)" ? `주소: ${post.chat_id}` : 
                    post.channel === "Line(라인 아이디)" ? `라인 아이디: ${post.chat_id}` :
-                   post.channel === "오픈카톡" ? `오픈카톡: https://open.kakao.com/o/${post.chat_id}` :
+                   post.channel === "오픈카톡" ? `오픈카톡: ${post.chat_id}` :
                    `${post.chat_id}`}
                 </div>
                 <div className="text-xs text-muted-foreground">
@@ -231,7 +231,7 @@ export function PostFeed({ posts, onDelete, onEdit, loadingMore, hasMore, newPos
             {/* 오픈카톡 바로가기 button */}
             {post.channel === "오픈카톡" && (
               <Button
-                onClick={() => window.open(`https://open.kakao.com/o/${post.chat_id}`, "_blank")}
+                onClick={() => window.open(post.chat_id, "_blank")}
                 size="sm"
                 variant="outline"
                 className={`w-full sm:w-auto transition-colors ${
