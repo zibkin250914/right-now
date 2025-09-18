@@ -328,7 +328,7 @@ export function MobilePostCreation({ activeChannel, onSubmit, isSubmitting, edit
               <div className={`${activeChannel === "전체" && !selectedChannel ? "opacity-50 pointer-events-none" : ""}`}>
                 <Button
                   type="submit"
-                  disabled={!chatId.trim() || !message.trim() || !password.trim() || isSubmitting || (activeChannel === "전체" && !selectedChannel)}
+                  disabled={isSubmitting || (activeChannel === "전체" && !selectedChannel)}
                   className="w-full"
                 >
                   {isSubmitting ? "등록 중..." : "등록"}

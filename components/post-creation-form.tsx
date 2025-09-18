@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import type { Channel } from "@/app/page"
 import type { Post } from "@/lib/supabase"
+import type { Channel } from "@/app/page"
 
 interface PostCreationFormProps {
   activeChannel: Channel
@@ -45,7 +45,7 @@ export function PostCreationForm({
         message: editingPost.message,
         password: editingPost.password,
       })
-      setSelectedChannel(editingPost.channel)
+      setSelectedChannel(editingPost.channel as Channel)
       setIsExpanded(true) // Auto-expand when editing
     } else {
       setFormData({ chat_id: "", message: "", password: "" })
@@ -146,27 +146,27 @@ export function PostCreationForm({
         }
       }
 
-      if (editingPost && onUpdatePost) {
-        const success = await onUpdatePost(editingPost.id, {
+      if (editingPost && onUpdatePost && selectedChannel) {
+        await onUpdatePost(editingPost.id, {
           channel: selectedChannel,
           chat_id: formData.chat_id,
           message: formData.message,
           password: formData.password,
         })
         
-        if (success) {
-          // Reset form and exit edit mode only on success
-          setFormData({ chat_id: "", message: "", password: "" })
-          setErrors({})
-          setIsExpanded(false)
-        }
+        // Reset form and exit edit mode
+        setFormData({ chat_id: "", message: "", password: "" })
+        setErrors({})
+        setIsExpanded(false)
       } else {
-        onSubmit({
-          channel: selectedChannel,
-          chat_id: formData.chat_id,
-          message: formData.message,
-          password: formData.password,
-        })
+        if (selectedChannel) {
+          onSubmit({
+            channel: selectedChannel,
+            chat_id: formData.chat_id,
+            message: formData.message,
+            password: formData.password,
+          })
+        }
         // Reset form
         setFormData({ chat_id: "", message: "", password: "" })
         setErrors({})
@@ -250,7 +250,7 @@ export function PostCreationForm({
                     >
                       <input
                         type="radio"
-                        name="channel"
+                        name="selectedChannel"
                         value={channel.value}
                         checked={selectedChannel === channel.value}
                         onChange={(e) => setSelectedChannel(e.target.value as Channel)}
@@ -268,7 +268,7 @@ export function PostCreationForm({
               
               <form onSubmit={handleSubmit} className="space-y-4">
             {/* Chat ID Input */}
-            <div className={`${activeChannel === "전체" && !selectedChannel ? "opacity-50 pointer-events-none" : ""}`}>
+            <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground whitespace-nowrap">
                   {selectedChannel === "whereby(화상채팅)" ? "주소 링크:" :
@@ -295,7 +295,7 @@ export function PostCreationForm({
             </div>
 
             {/* Message Input */}
-            <div className={`${activeChannel === "전체" && !selectedChannel ? "opacity-50 pointer-events-none" : ""}`}>
+            <div>
               <Textarea
                 value={formData.message}
                 onChange={(e) => setFormData({ ...formData, message: e.target.value })}
@@ -312,7 +312,7 @@ export function PostCreationForm({
             </div>
 
             {/* Password Input */}
-            <div className={`${activeChannel === "전체" && !selectedChannel ? "opacity-50 pointer-events-none" : ""}`}>
+            <div>
               <Input
                 type="password"
                 value={formData.password}
@@ -327,7 +327,7 @@ export function PostCreationForm({
               </p>
             </div>
 
-            <div className={`pt-2 ${activeChannel === "전체" ? "opacity-50 pointer-events-none" : ""}`}>
+            <div className="pt-2">
               {editingPost ? (
                 <div className="flex gap-2">
                   <Button
